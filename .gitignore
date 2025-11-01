@@ -1,0 +1,120 @@
+# === Visual Studio / .NET General ===
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vscode/
+*.code-workspace
+
+# === Build Results ===
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Tt]est[Rr]esults/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.dll
+*.exe
+*.app
+*.appx
+*.msix
+*.pdb
+*.cache
+*.ilk
+*.obj
+*.tmp
+*.log
+
+# === Publish outputs ===
+publish/
+out/
+dist/
+artifacts/
+
+# === NuGet ===
+*.nupkg
+*.snupkg
+*.nuspec
+*.psmdcp
+packages/
+.nuget/
+# If you use Paket:
+.paket/
+paket-files/
+
+# === Coverage / Test Artifacts ===
+*.coverage
+*.coveragexml
+*.testsettings
+*.runsettings
+*.trx
+TestResult.xml
+coverage.cobertura.xml
+coverage.opencover.xml
+
+# === Entity Framework / Migrations (optional) ===
+# Uncomment if you auto-generate snapshots and don't want to track them
+# Migrations/
+
+# === User-specific Files ===
+*.rsuser
+*.suo
+*.user
+*.userprefs
+*.dbmdl
+*.jfm
+
+# === OS Files ===
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+Icon?
+
+# === JetBrains Rider ===
+.idea/
+*.sln.iml
+
+# === ASP.NET Logs / Configs ===
+wwwroot/lib/
+appsettings.Development.json
+appsettings.Local.json
+launchSettings.json
+
+# === Docker / Compose ===
+**/docker-compose*.yml
+**/Dockerfile.*
+**/Dockerfile
+**/.docker/
+**/.containers/
+
+# === Logs ===
+*.log
+logs/
+log/
+*.stackdump
+
+# === Temporary Files ===
+~$*
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.orig
+
+# === Other Common Folders ===
+_ReSharper*/
+*.DotSettings.user
+*.ncrunch*
+.vsconfig
+node_modules/
+npm-debug.log
+yarn-error.log
+.env
+.env.*

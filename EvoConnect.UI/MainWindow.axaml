@@ -1,0 +1,326 @@
+<Window
+    x:Class="EvoConnect.UI.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:qr="assembly=Avalonia.QRCode"
+    xmlns:vm="using:EvoConnect.UI.ViewModels"
+    Title="EvoConnect.UI"
+    MinWidth="450"
+    MinHeight="160"
+    MaxWidth="450"
+    MaxHeight="320"
+    x:DataType="vm:MainWindowViewModel"
+    WindowStartupLocation="CenterOwner" 
+    ExtendClientAreaChromeHints="NoChrome" 
+    ExtendClientAreaToDecorationsHint="True"
+    Icon="/Assets/icon.ico"
+    SystemDecorations="Full"
+    mc:Ignorable="d">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+    
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#1E2A5E" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        
+        <Style Selector="Button.close">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#1E2A5E" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.server">
+            <Setter Property="Background" Value="#3949AB" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Margin" Value="4,0" />
+        </Style>
+
+        <Style Selector="Button.server-stop">
+            <Setter Property="Background" Value="#F44336" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Margin" Value="4,0" />
+        </Style>
+        
+        <Style Selector="TextBox">
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="#F5F5F5" />
+        </Style>
+        
+        <Style Selector="ProgressBar">
+            <Setter Property="Foreground" Value="#3949AB" />
+            <Setter Property="Background" Value="#E0E0E0" />
+            <Setter Property="Height" Value="4" />
+            <Setter Property="CornerRadius" Value="2" />
+        </Style>
+    </Window.Styles>
+    
+    <Border
+        Background="White"
+        BorderBrush="#E0E0E0"
+        BorderThickness="1"
+        CornerRadius="8"
+        BoxShadow="0 4 8 #20000000">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <!-- Header -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <Image Width="20" Height="20" Source="/Assets/icon.ico"/>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Foreground="#1E2A5E">
+                        DentalEvo Connect
+                    </TextBlock>
+                </StackPanel>
+                
+                <!-- Server Status Indicator -->
+                <StackPanel Grid.Column="1" 
+                           Orientation="Horizontal" 
+                           HorizontalAlignment="Right" 
+                           VerticalAlignment="Center" 
+                           Spacing="4"
+                           Margin="0,0,8,0">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center">
+                        <Ellipse.Fill>
+                            <SolidColorBrush Color="{Binding IsServerRunning, Converter={x:Static vm:BoolToColorConverter.Instance}}" />
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <TextBlock FontSize="10" 
+                              Foreground="#666" 
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="{Binding ServerStatus}">
+                        Server
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Server Controls Button -->
+                <Button Grid.Column="2"
+                        Content="⚙"
+                        Command="{Binding ShowServerStatusCommand}"
+                        ToolTip.Tip="Server Controls"
+                        Background="Transparent"
+                        Foreground="#666"
+                        Width="24" Height="24"
+                        FontSize="12"
+                        Padding="0" />
+                
+                <Button
+                    Grid.Column="3"
+                    Classes="close"
+                    Command="{Binding ExitCommand}"
+                    Content="X"
+                    FontSize="12" />
+            </Grid>
+            
+            <!-- Content Area -->
+            <Border Grid.Row="1" Padding="16,0,16,16">
+              <Panel>
+                <Grid IsVisible="{Binding QrScreen}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    
+                    <Border Grid.Column="0" 
+                            BorderBrush="#E0E0E0" 
+                            BorderThickness="1" 
+                            CornerRadius="4" 
+                            Padding="4">
+                        <Panel>
+                            <ContentControl Content="{Binding QrContentControl}" />
+                        </Panel>
+                    </Border>
+                    
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="12" VerticalAlignment="Center">
+                        <TextBlock
+                            FontSize="14"
+                            FontWeight="Bold"
+                            Foreground="#1E2A5E"
+                            Text="{Binding PartnerName}" />
+                        <TextBlock
+                            FontSize="12"
+                            Foreground="#55679C"
+                            Text="{Binding SubscriptionType}" />
+                        <Button
+                            Classes="primary"
+                            Command="{Binding InitScreenCommand}"
+                            Content="Change token"
+                            Margin="0,8,0,0" />
+                    </StackPanel>
+                    
+                    <ProgressBar
+                        Grid.ColumnSpan="2"
+                        VerticalAlignment="Bottom"
+                        IsIndeterminate="True"
+                        IsVisible="{Binding Syncing}" />
+                </Grid>
+                
+                <Grid IsVisible="{Binding HomeScreen}">
+                    <!-- Not Installed Warning -->
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Foreground="#F44336"
+                        FontWeight="SemiBold"
+                        TextWrapping="Wrap"
+                        IsVisible="{Binding !RegKeyExist}">
+                        Make sure dentalEvo is installed on this machine!
+                    </TextBlock>
+                    
+                    <!-- Registration Key Exists -->
+                    <Grid IsVisible="{Binding RegKeyExist}">
+                        <!-- Connecting Status -->
+                        <StackPanel IsVisible="{Binding ServerConnecting}" 
+                                    VerticalAlignment="Center" 
+                                    Spacing="16">
+                            <TextBlock HorizontalAlignment="Center" 
+                                       Text="Connecting to server..." 
+                                       Foreground="#1E2A5E"/>
+                            <ProgressBar IsIndeterminate="True" Margin="24,0" />
+                        </StackPanel>
+                        
+                        <!-- All Set Status -->
+                        <Border IsVisible="{Binding AllSet}"
+                                Background="#E8F5E9"
+                                BorderBrush="#66BB6A"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="16">
+                            <TextBlock
+                                Foreground="#2E7D32"
+                                TextWrapping="Wrap"
+                                TextAlignment="Center">
+                                The connection has been successfully established. The application will commence working in the background within a few seconds. Please refrain from closing this window as it will close automatically once everything is set.
+                            </TextBlock>
+                        </Border>
+                        
+                        <!-- Connection Form -->
+                        <StackPanel IsVisible="{Binding !AllSet}" 
+                                    Spacing="16" 
+                                    VerticalAlignment="Center">
+                            <StackPanel Spacing="8" IsVisible="{Binding !ServerConnecting}">
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#1E2A5E">
+                                    Access Key
+                                </TextBlock>
+                                <TextBox PasswordChar="*" Text="{Binding ApiKey}" />
+                            </StackPanel>
+                            
+                            <Button
+                                Classes="primary"
+                                Command="{Binding ConnectCommand}"
+                                Content="Connect"
+                                IsVisible="{Binding !ServerConnecting}" />
+                                
+                            <!-- Error Messages -->
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="#C62828"
+                                TextWrapping="Wrap"
+                                IsVisible="{Binding DbError}">
+                                Unable to connect to the database
+                            </TextBlock>
+                            
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="#C62828"
+                                TextWrapping="Wrap"
+                                IsVisible="{Binding ServerConnectFail}">
+                                Unable to connect to the server. Please verify your internet connection.
+                            </TextBlock>
+                            
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="#C62828"
+                                TextWrapping="Wrap"
+                                IsVisible="{Binding ServerWrongKey}">
+                                You have entered an incorrect access key.
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+                </Panel>
+            </Border>
+
+            <!-- Server Controls Panel (Collapsible) -->
+            <Border Grid.Row="2"
+                    Background="#F8F9FA"
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="0,1,0,0"
+                    Padding="16,12"
+                    IsVisible="{Binding ShowServerControls}">
+                <StackPanel Spacing="8">
+                    <!-- Server Status Display -->
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="Server Status:"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#666"
+                                   VerticalAlignment="Center" />
+                        
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding ServerStatus}"
+                                   FontSize="12"
+                                   Margin="8,0"
+                                   VerticalAlignment="Center">
+                            <TextBlock.Foreground>
+                                <SolidColorBrush Color="{Binding IsServerRunning, Converter={x:Static vm:BoolToColorConverter.Instance}}" />
+                            </TextBlock.Foreground>
+                        </TextBlock>
+                        
+                        <Ellipse Grid.Column="2"
+                                 Width="10" Height="10"
+                                 VerticalAlignment="Center">
+                            <Ellipse.Fill>
+                                <SolidColorBrush Color="{Binding IsServerRunning, Converter={x:Static vm:BoolToColorConverter.Instance}}" />
+                            </Ellipse.Fill>
+                        </Ellipse>
+                    </Grid>
+                    
+                    <!-- Server Control Buttons -->
+                    <StackPanel Orientation="Horizontal" 
+                                HorizontalAlignment="Center" 
+                                Spacing="8">
+                        <Button Classes="server"
+                                Content="Start"
+                                Command="{Binding StartServerCommand}"
+                                IsEnabled="{Binding !IsServerRunning}" />
+                        
+                        <Button Classes="server-stop"
+                                Content="Stop"
+                                Command="{Binding StopServerCommand}"
+                                IsEnabled="{Binding IsServerRunning}" />
+                        
+                        <Button Classes="server"
+                                Content="Restart"
+                                Command="{Binding RestartServerCommand}"
+                                IsEnabled="{Binding IsServerRunning}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

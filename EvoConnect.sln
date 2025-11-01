@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EvoConnect.Common", "EvoConnect.Common\EvoConnect.Common.csproj", "{923C6241-B266-4D37-AC6D-D29C6E23D006}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EvoConnect.UI", "EvoConnect.UI\EvoConnect.UI.csproj", "{9308C11F-69CF-4FC7-9015-82CAC0FFBFD8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EvoConnect.Server", "EvoConnect.Server\EvoConnect.Server.csproj", "{DA958CFB-5AD8-4148-9C57-DFA73F4D5DD5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{923C6241-B266-4D37-AC6D-D29C6E23D006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{923C6241-B266-4D37-AC6D-D29C6E23D006}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{923C6241-B266-4D37-AC6D-D29C6E23D006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{923C6241-B266-4D37-AC6D-D29C6E23D006}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9308C11F-69CF-4FC7-9015-82CAC0FFBFD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9308C11F-69CF-4FC7-9015-82CAC0FFBFD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9308C11F-69CF-4FC7-9015-82CAC0FFBFD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9308C11F-69CF-4FC7-9015-82CAC0FFBFD8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA958CFB-5AD8-4148-9C57-DFA73F4D5DD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA958CFB-5AD8-4148-9C57-DFA73F4D5DD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA958CFB-5AD8-4148-9C57-DFA73F4D5DD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA958CFB-5AD8-4148-9C57-DFA73F4D5DD5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

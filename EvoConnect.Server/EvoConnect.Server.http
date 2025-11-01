@@ -1,0 +1,6 @@
+@EvoConnect.Server_HostAddress = http://localhost:5182
+
+GET {{EvoConnect.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
