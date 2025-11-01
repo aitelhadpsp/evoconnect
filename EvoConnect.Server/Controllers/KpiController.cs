@@ -12,6 +12,7 @@ namespace EvoConnect.Server.Controllers
     [Route("api/[controller]")]
     public class KpiController(
         IPaymentDA _paymentDA,
+        IPatientsDA _patientsDA, 
         IActesRepository _actesRepository, 
         IKpiConfigRepository _repository, 
         IAppointmentsDA _appointmentsDA) : ControllerBase
@@ -48,6 +49,7 @@ namespace EvoConnect.Server.Controllers
                 var realisedActesCount = await _actesRepository.GetTodayRealisedActesCount();
                 var encaiss = await _actesRepository.GetTodayRealisedActesEncaiss();
                 var totalPayment = await _paymentDA.GetTotalPaymentsToday();
+                var patients = await _patientsDA.GetPatientCreationStatisticsAsync(start, end);
                 
                 return Ok(new KpiStatsResponse
                 {
@@ -56,6 +58,7 @@ namespace EvoConnect.Server.Controllers
                     CompletedAppointments = appointments.Sum(a => a.CompletedAppointments),
                     RealisedActesCount = realisedActesCount,
                     Encaiss = encaiss,
+                    NewPatientsCount =patients.Sum(p => p.Count),
                     TotalPayment = totalPayment,
                     FetchedAt = DateTime.UtcNow
                 });
@@ -184,6 +187,7 @@ namespace EvoConnect.Server.Controllers
         public int CancelledAppointments { get; set; }
         public int CompletedAppointments { get; set; }
         public int RealisedActesCount { get; set; }
+        public int NewPatientsCount { get; set; }
         public float Encaiss { get; set; }
         public float TotalPayment { get; set; }
         public DateTime FetchedAt { get; set; }
