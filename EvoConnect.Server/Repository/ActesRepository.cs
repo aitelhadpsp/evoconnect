@@ -199,10 +199,7 @@ namespace EvoConnect.Server.Repository
             var Tomorrow = Today.AddDays(1);
             var query = _context.DentalisActesPatient
              .Where(ap => ap.ApRealise == 1 && ap.ApDateRealise >= Today && ap.ApDateRealise < Tomorrow);
-             if (! await query.AnyAsync())
-             {
-                 return 0f;
-             }
+           
             return await query.SumAsync(e => e.ApMontant);
 
         }
