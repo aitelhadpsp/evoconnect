@@ -10,12 +10,11 @@ namespace EvoConnect.Server.Repository.Interfaces
 
         Task<PaginatedResult<EvocomPatientDto>> GetPaginatedPatientsAsync(PatientFilterRequest request);
         public Task<PatientEngagementStatistics> GetPatientEngagementStatisticsAsync();
-Task<DetailedPatientEngagementStatistics> GetDetailedPatientEngagementStatisticsAsync();
-
+        Task<DetailedPatientEngagementStatistics> GetDetailedPatientEngagementStatisticsAsync();
+        public Task<int> GetLostPatients();
+        public Task<int> GetTotalActivePatients();
         Task<int> GetPatientCountAsync(PatientFilters filters);
-
         Task<EvocomPatientDto> GetPatientByIdAsync(int patientId);
-
         Task<PaginatedResult<EvocomPatientDto>> SearchPatientsAsync(string searchText, int pageNumber = 1, int pageSize = 20);
         public Task<List<PatientCreationStatistic>> GetPatientCreationStatisticsAsync(DateTime fromDate, DateTime toDate);
 

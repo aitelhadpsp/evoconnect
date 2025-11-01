@@ -698,6 +698,41 @@ namespace EvoConnect.Server.Repository
             }
         }
 
+        public async Task<int> GetLostPatients()
+        {
+            try
+            {
+                const int monthsWithoutAppointment = 16;
+
+                var cutoffDate = DateTime.Now.AddMonths(-monthsWithoutAppointment);
+                var lostPatients = await _context.Patients
+                    .WithPersonne()
+                    .Where(p => p.Personne.IdPersonne > 0)
+                    .Where(p => !_context.RendezVous.Any(rdv => rdv.IdPersonne == p.IdPersonne && rdv.RdvDate >= cutoffDate))
+                    .CountAsync();
+                return lostPatients;
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+        }
+        public async Task<int> GetTotalActivePatients()
+        {
+            try
+            {
+                var activePatients = await _context.Patients
+                    .WithPersonne()
+                    .Where(p => p.Personne.IdPersonne > 0)
+                    .CountAsync();
+                return activePatients;
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+        }
+
         private PatientCreationGrouping DetermineGroupingLevel(TimeSpan dateSpan)
         {
             if (dateSpan.TotalDays > 4 * 365) // More than 4 years
@@ -875,129 +910,129 @@ namespace EvoConnect.Server.Repository
         }
 
         /// <summary>
-/// Get detailed patient engagement statistics - FIREBIRD SAFE VERSION
-/// Uses only simple SELECT queries with no EXISTS, no ANY, no subqueries
-/// </summary>
-public async Task<DetailedPatientEngagementStatistics> GetDetailedPatientEngagementStatisticsAsync()
-{
-    try
-    {
-        var stats = new DetailedPatientEngagementStatistics();
-
-        // Get total patient count
-        var totalPatients = await _context.Patients
-            .WithPersonne()
-            .Where(p => p.Personne.IdPersonne > 0)
-            .CountAsync();
-
-        stats.TotalPatients = totalPatients;
-
-        if (totalPatients == 0)
+        /// Get detailed patient engagement statistics - FIREBIRD SAFE VERSION
+        /// Uses only simple SELECT queries with no EXISTS, no ANY, no subqueries
+        /// </summary>
+        public async Task<DetailedPatientEngagementStatistics> GetDetailedPatientEngagementStatisticsAsync()
         {
-            return stats;
+            try
+            {
+                var stats = new DetailedPatientEngagementStatistics();
+
+                // Get total patient count
+                var totalPatients = await _context.Patients
+                    .WithPersonne()
+                    .Where(p => p.Personne.IdPersonne > 0)
+                    .CountAsync();
+
+                stats.TotalPatients = totalPatients;
+
+                if (totalPatients == 0)
+                {
+                    return stats;
+                }
+
+                // Step 1: Get all patient IDs
+                var allPatientIds = await _context.Patients
+                    .WithPersonne()
+                    .Where(p => p.Personne.IdPersonne > 0)
+                    .Select(p => p.IdPersonne)
+                    .ToListAsync();
+
+                var patientIdSet = new HashSet<int>(allPatientIds);
+
+                // Step 2: Get distinct patient IDs with any appointment
+                var patientsWithAppointments = await _context.RendezVous
+                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne))
+                    .Select(rdv => rdv.IdPersonne)
+                    .Distinct()
+                    .ToListAsync();
+                var patientsWithAppointmentsSet = new HashSet<int>(patientsWithAppointments);
+
+                // Step 3: Get distinct patient IDs who showed up (RdvStatut = 1)
+                var patientsWhoShowedUp = await _context.RendezVous
+                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 1)
+                    .Select(rdv => rdv.IdPersonne)
+                    .Distinct()
+                    .ToListAsync();
+                var patientsWhoShowedUpSet = new HashSet<int>(patientsWhoShowedUp);
+
+                // Step 4: Get distinct patient IDs with cancelled appointments (RdvStatut = 2)
+                var patientsWithCancelled = await _context.RendezVous
+                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 2)
+                    .Select(rdv => rdv.IdPersonne)
+                    .Distinct()
+                    .ToListAsync();
+                var patientsWithCancelledSet = new HashSet<int>(patientsWithCancelled);
+
+                // Step 5: Get distinct patient IDs with no-show appointments (RdvStatut = 3)
+                var patientsWithNoShow = await _context.RendezVous
+                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 3)
+                    .Select(rdv => rdv.IdPersonne)
+                    .Distinct()
+                    .ToListAsync();
+                var patientsWithNoShowSet = new HashSet<int>(patientsWithNoShow);
+
+                // Step 6: Get distinct patient IDs with realized treatments (ApRealise = 1)
+                var patientsWithRealizedTreatments = await _context.DentalisActesPatient
+                    .Where(acte => patientIdSet.Contains(acte.ApPatient) && acte.ApRealise == 1)
+                    .Select(acte => acte.ApPatient)
+                    .Distinct()
+                    .ToListAsync();
+                var patientsWithRealizedTreatmentsSet = new HashSet<int>(patientsWithRealizedTreatments);
+
+                // Step 7: Get distinct patient IDs with planned treatments (ApRealise = 0)
+                var patientsWithPlannedTreatments = await _context.DentalisActesPatient
+                    .Where(acte => patientIdSet.Contains(acte.ApPatient) && acte.ApRealise == 0)
+                    .Select(acte => acte.ApPatient)
+                    .Distinct()
+                    .ToListAsync();
+                var patientsWithPlannedTreatmentsSet = new HashSet<int>(patientsWithPlannedTreatments);
+
+                // Calculate all statistics in memory using HashSet operations
+
+                // 1. No appointments
+                stats.PatientsWithNoAppointments = allPatientIds.Count(id => !patientsWithAppointmentsSet.Contains(id));
+                stats.PatientsWithNoAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoAppointments, totalPatients);
+
+                // 2. Has appointments but never showed up
+                stats.PatientsWithAppointmentsButNeverShowedUp = patientsWithAppointments.Count(id => !patientsWhoShowedUpSet.Contains(id));
+                stats.PatientsWithAppointmentsButNeverShowedUpPercentage = CalculatePercentage(stats.PatientsWithAppointmentsButNeverShowedUp, totalPatients);
+
+                // 3. No realized treatments
+                stats.PatientsWithNoRealizedTreatments = allPatientIds.Count(id => !patientsWithRealizedTreatmentsSet.Contains(id));
+                stats.PatientsWithNoRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithNoRealizedTreatments, totalPatients);
+
+                // 4. Has realized treatments
+                stats.PatientsWithRealizedTreatments = patientsWithRealizedTreatments.Count;
+                stats.PatientsWithRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithRealizedTreatments, totalPatients);
+
+                // 5. Planned but not realized treatments
+                stats.PatientsWithPlannedButNotRealizedTreatments = patientsWithPlannedTreatments.Count(id => !patientsWithRealizedTreatmentsSet.Contains(id));
+                stats.PatientsWithPlannedButNotRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithPlannedButNotRealizedTreatments, totalPatients);
+
+                // 6. No-show appointments
+                stats.PatientsWithNoShowAppointments = patientsWithNoShow.Count;
+                stats.PatientsWithNoShowAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoShowAppointments, totalPatients);
+
+                // 7. Cancelled appointments
+                stats.PatientsWithCancelledAppointments = patientsWithCancelled.Count;
+                stats.PatientsWithCancelledAppointmentsPercentage = CalculatePercentage(stats.PatientsWithCancelledAppointments, totalPatients);
+
+                return stats;
+            }
+            catch (Exception ex)
+            {
+                // Log the exception for debugging
+                Console.WriteLine($"Error in GetDetailedPatientEngagementStatisticsAsync: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new DetailedPatientEngagementStatistics();
+            }
         }
 
-        // Step 1: Get all patient IDs
-        var allPatientIds = await _context.Patients
-            .WithPersonne()
-            .Where(p => p.Personne.IdPersonne > 0)
-            .Select(p => p.IdPersonne)
-            .ToListAsync();
-
-        var patientIdSet = new HashSet<int>(allPatientIds);
-
-        // Step 2: Get distinct patient IDs with any appointment
-        var patientsWithAppointments = await _context.RendezVous
-            .Where(rdv => patientIdSet.Contains(rdv.IdPersonne))
-            .Select(rdv => rdv.IdPersonne)
-            .Distinct()
-            .ToListAsync();
-        var patientsWithAppointmentsSet = new HashSet<int>(patientsWithAppointments);
-
-        // Step 3: Get distinct patient IDs who showed up (RdvStatut = 1)
-        var patientsWhoShowedUp = await _context.RendezVous
-            .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 1)
-            .Select(rdv => rdv.IdPersonne)
-            .Distinct()
-            .ToListAsync();
-        var patientsWhoShowedUpSet = new HashSet<int>(patientsWhoShowedUp);
-
-        // Step 4: Get distinct patient IDs with cancelled appointments (RdvStatut = 2)
-        var patientsWithCancelled = await _context.RendezVous
-            .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 2)
-            .Select(rdv => rdv.IdPersonne)
-            .Distinct()
-            .ToListAsync();
-        var patientsWithCancelledSet = new HashSet<int>(patientsWithCancelled);
-
-        // Step 5: Get distinct patient IDs with no-show appointments (RdvStatut = 3)
-        var patientsWithNoShow = await _context.RendezVous
-            .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 3)
-            .Select(rdv => rdv.IdPersonne)
-            .Distinct()
-            .ToListAsync();
-        var patientsWithNoShowSet = new HashSet<int>(patientsWithNoShow);
-
-        // Step 6: Get distinct patient IDs with realized treatments (ApRealise = 1)
-        var patientsWithRealizedTreatments = await _context.DentalisActesPatient
-            .Where(acte => patientIdSet.Contains(acte.ApPatient) && acte.ApRealise == 1)
-            .Select(acte => acte.ApPatient)
-            .Distinct()
-            .ToListAsync();
-        var patientsWithRealizedTreatmentsSet = new HashSet<int>(patientsWithRealizedTreatments);
-
-        // Step 7: Get distinct patient IDs with planned treatments (ApRealise = 0)
-        var patientsWithPlannedTreatments = await _context.DentalisActesPatient
-            .Where(acte => patientIdSet.Contains(acte.ApPatient) && acte.ApRealise == 0)
-            .Select(acte => acte.ApPatient)
-            .Distinct()
-            .ToListAsync();
-        var patientsWithPlannedTreatmentsSet = new HashSet<int>(patientsWithPlannedTreatments);
-
-        // Calculate all statistics in memory using HashSet operations
-        
-        // 1. No appointments
-        stats.PatientsWithNoAppointments = allPatientIds.Count(id => !patientsWithAppointmentsSet.Contains(id));
-        stats.PatientsWithNoAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoAppointments, totalPatients);
-
-        // 2. Has appointments but never showed up
-        stats.PatientsWithAppointmentsButNeverShowedUp = patientsWithAppointments.Count(id => !patientsWhoShowedUpSet.Contains(id));
-        stats.PatientsWithAppointmentsButNeverShowedUpPercentage = CalculatePercentage(stats.PatientsWithAppointmentsButNeverShowedUp, totalPatients);
-
-        // 3. No realized treatments
-        stats.PatientsWithNoRealizedTreatments = allPatientIds.Count(id => !patientsWithRealizedTreatmentsSet.Contains(id));
-        stats.PatientsWithNoRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithNoRealizedTreatments, totalPatients);
-
-        // 4. Has realized treatments
-        stats.PatientsWithRealizedTreatments = patientsWithRealizedTreatments.Count;
-        stats.PatientsWithRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithRealizedTreatments, totalPatients);
-
-        // 5. Planned but not realized treatments
-        stats.PatientsWithPlannedButNotRealizedTreatments = patientsWithPlannedTreatments.Count(id => !patientsWithRealizedTreatmentsSet.Contains(id));
-        stats.PatientsWithPlannedButNotRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithPlannedButNotRealizedTreatments, totalPatients);
-
-        // 6. No-show appointments
-        stats.PatientsWithNoShowAppointments = patientsWithNoShow.Count;
-        stats.PatientsWithNoShowAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoShowAppointments, totalPatients);
-
-        // 7. Cancelled appointments
-        stats.PatientsWithCancelledAppointments = patientsWithCancelled.Count;
-        stats.PatientsWithCancelledAppointmentsPercentage = CalculatePercentage(stats.PatientsWithCancelledAppointments, totalPatients);
-
-        return stats;
-    }
-    catch (Exception ex)
-    {
-        // Log the exception for debugging
-        Console.WriteLine($"Error in GetDetailedPatientEngagementStatisticsAsync: {ex.Message}");
-        Console.WriteLine($"Stack trace: {ex.StackTrace}");
-        return new DetailedPatientEngagementStatistics();
-    }
-}
-
-/// <summary>
-/// Get basic patient engagement statistics - FIREBIRD SAFE VERSION
-/// </summary>
+        /// <summary>
+        /// Get basic patient engagement statistics - FIREBIRD SAFE VERSION
+        /// </summary>
 
 
         private decimal CalculatePercentage(int count, int total)

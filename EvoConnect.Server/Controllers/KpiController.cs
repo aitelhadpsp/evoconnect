@@ -44,12 +44,13 @@ namespace EvoConnect.Server.Controllers
             {
                 var start = DateTime.Today;
                 var end = DateTime.Today.AddDays(1).AddSeconds(-1);
-                
                 var appointments = await _appointmentsDA.GetAppointmentStatsAsync(start, end);
                 var realisedActesCount = await _actesRepository.GetTodayRealisedActesCount();
                 var encaiss = await _actesRepository.GetTodayRealisedActesEncaiss();
                 var totalPayment = await _paymentDA.GetTotalPaymentsToday();
                 var patients = await _patientsDA.GetPatientCreationStatisticsAsync(start, end);
+                var lostPatients = await _patientsDA.GetLostPatients();
+                var activePatients = await _patientsDA.GetTotalActivePatients();
                 
                 return Ok(new KpiStatsResponse
                 {
@@ -58,9 +59,11 @@ namespace EvoConnect.Server.Controllers
                     CompletedAppointments = appointments.Sum(a => a.CompletedAppointments),
                     RealisedActesCount = realisedActesCount,
                     Encaiss = encaiss,
-                    NewPatientsCount =patients.Sum(p => p.Count),
+                    NewPatientsCount = patients.Sum(p => p.Count),
                     TotalPayment = totalPayment,
-                    FetchedAt = DateTime.UtcNow
+                    FetchedAt = DateTime.UtcNow,
+                    LostPatients = lostPatients,
+                    ActivePatients = activePatients
                 });
             }
             catch (Exception ex)
@@ -190,6 +193,8 @@ namespace EvoConnect.Server.Controllers
         public int NewPatientsCount { get; set; }
         public float Encaiss { get; set; }
         public float TotalPayment { get; set; }
+        public int LostPatients { get; set; }
+        public int ActivePatients { get; set; }
         public DateTime FetchedAt { get; set; }
     }
 }
