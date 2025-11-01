@@ -10,16 +10,11 @@ namespace EvoConnect.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class KpiController : ControllerBase
+    public class KpiController(
+IPaymentDA _paymentDA,
+        IActesRepository _actesRepository, IKpiConfigRepository _repository, IAppointmentsDA _appointmentsDA) : ControllerBase
     {
-        private readonly IKpiConfigRepository _repository;
-        private readonly IAppointmentsDA _appointmentsDA;
 
-        public KpiController(IKpiConfigRepository repository,IAppointmentsDA appointmentsDA)
-        {
-            _repository = repository;
-            _appointmentsDA = appointmentsDA;
-        }
 
         /// <summary>
         /// Get all currently enabled KPI configurations
@@ -102,9 +97,20 @@ namespace EvoConnect.Server.Controllers
         {
             var start = DateTime.Today;
             var end = DateTime.Today.AddDays(1).AddSeconds(-1);
-            var appStats =äwait _appointmentsDA.GetAppointmentStatsAsync(start, end);
-            return null;
-
+            var appoinments = await _appointmentsDA.GetAppointmentStatsAsync(start, end);
+            var relaisedActesCount = await _actesRepository.GetTodayRealisedActesCount();
+            var encaiss = await _actesRepository.GetTodayRealisedActesEncaiss();
+            
+            var totalPayment = await _paymentDA.GetTotalPaymentsToday();
+            return Ok(new
+            {
+                TotalAppointments =appoinments.Sum(a => a.TotalAppointments),
+                CancelledAppointments =appoinments.Sum(a => a.CancelledAppointments),
+                CompletedAppointments =appoinments.Sum(a => a.CompletedAppointments),
+                relaisedActesCount,
+                encaiss,
+                totalPayment
+            });
         }
 
     }

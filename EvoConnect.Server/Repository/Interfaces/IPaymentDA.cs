@@ -17,6 +17,7 @@ namespace EvoConnect.Server.Repository.Interfaces
         Task<PaymentSummary> GetPaymentsSummaryAsync(DateTime? fromDate = null, DateTime? toDate = null);
 
         Task<List<PaymentDto>> GetPaymentsByPatientIdAsync(int patientId);
+        public Task<float> GetTotalPaymentsToday();
 
         /// <summary>
         /// Get payment details by ID

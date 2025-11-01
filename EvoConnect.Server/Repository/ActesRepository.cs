@@ -71,11 +71,11 @@ namespace EvoConnect.Server.Repository
             // Load entities first - avoids character set transliteration in SQL
             var actesPatient = await _context.DentalisActesPatient
                 .Include(ap => ap.Acte)
-                 .ThenInclude(ap => ap.CodeSecu) 
+                 .ThenInclude(ap => ap.CodeSecu)
                 .Where(ap => ap.ApPatient == patientId && ap.ApActe > 0)
                 .AsNoTracking()
                 .ToListAsync();
-            
+
             // Project in-memory where C# handles character encoding
             return actesPatient.Select(ap => new ActePatientDto
             {
@@ -183,6 +183,28 @@ namespace EvoConnect.Server.Repository
                     ApFactureDate = ap.ApFactureDate
                 })
                 .FirstOrDefaultAsync();
+        }
+
+        public Task<int> GetTodayRealisedActesCount()
+        {
+            var Today = DateTime.Today;
+            var Tomorrow = Today.AddDays(1);
+            return _context.DentalisActesPatient
+             .Where(ap => ap.ApRealise == 1 && ap.ApDateRealise >= Today && ap.ApDateRealise < Tomorrow).CountAsync();
+
+        }
+        public async Task<float> GetTodayRealisedActesEncaiss()
+        {
+            var Today = DateTime.Today;
+            var Tomorrow = Today.AddDays(1);
+            var query = _context.DentalisActesPatient
+             .Where(ap => ap.ApRealise == 1 && ap.ApDateRealise >= Today && ap.ApDateRealise < Tomorrow);
+             if (! await query.AnyAsync())
+             {
+                 return 0f;
+             }
+            return await query.SumAsync(e => e.ApMontant);
+
         }
     }
 }

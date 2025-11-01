@@ -91,6 +91,19 @@ namespace EvoConnect.Server.Repository
                 return new List<PaymentDto>();
             }
         }
+        public async Task<float> GetTotalPaymentsToday()
+        {
+
+            var Today = DateTime.Today;
+            var Tomorrow = Today.AddDays(1);
+
+            var totalPayments = await _context.PlansAppliques
+               .Where(pa => pa.DateRens >= Today && pa.DateRens < Tomorrow && pa.TypeRegle == 0)
+               .SumAsync(pa => pa.MontantEncais ?? 0);
+
+            return totalPayments;
+
+        }
 
         public async Task<PaymentDto> GetPaymentByIdAsync(int patientId, int codePlan, int numDate)
         {
@@ -102,9 +115,9 @@ namespace EvoConnect.Server.Repository
                     .Include(pa => pa.Praticien)
                     .Include(pa => pa.Mutuelle)
                     .Include(pa => pa.Caisse)
-                    .FirstOrDefaultAsync(pa => 
-                        pa.IdPatient == patientId && 
-                        pa.CodePlan == codePlan && 
+                    .FirstOrDefaultAsync(pa =>
+                        pa.IdPatient == patientId &&
+                        pa.CodePlan == codePlan &&
                         pa.NumDate == numDate);
 
                 return planApplique != null ? MapToPaymentDto(planApplique) : null;
@@ -122,8 +135,8 @@ namespace EvoConnect.Server.Repository
                 var planAppliques = await _context.PlansAppliques
                     .Include(pa => pa.Patient)
                         .ThenInclude(p => p.Personne)
-                    .Where(pa => pa.DateRens >= fromDate && 
-                                pa.DateRens <= toDate && 
+                    .Where(pa => pa.DateRens >= fromDate &&
+                                pa.DateRens <= toDate &&
                                 pa.TypeRegle == 0)
                     .OrderByDescending(pa => pa.DateRens)
                     .ToListAsync();
@@ -143,7 +156,7 @@ namespace EvoConnect.Server.Repository
                 var planAppliques = await _context.PlansAppliques
                     .Include(pa => pa.Patient)
                         .ThenInclude(p => p.Personne)
-                    .Where(pa => (pa.MontantEncais - (pa.MontantEncais ?? 0)) > 0.01 && 
+                    .Where(pa => (pa.MontantEncais - (pa.MontantEncais ?? 0)) > 0.01 &&
                                 pa.TypeRegle == 0)
                     .OrderBy(pa => pa.DateRefPaie)
                     .ToListAsync();
@@ -181,7 +194,7 @@ namespace EvoConnect.Server.Repository
                     TotalOutstandingEuro = payments.Sum(pa => (pa.MontantEncaisEuro ?? 0) - (pa.MontantEncaisEuro ?? 0)),
                     PaidPayments = payments.Count(pa => Math.Abs((pa.MontantEncais ?? 0) - (pa.MontantEncais ?? 0)) < 0.01),
                     PendingPayments = payments.Count(pa => ((pa.MontantEncais ?? 0) - (pa.MontantEncais ?? 0)) > 0.01),
-                    OverduePayments = payments.Count(pa => ((pa.MontantEncais ?? 0) - (pa.MontantEncais ?? 0)) > 0.01 && 
+                    OverduePayments = payments.Count(pa => ((pa.MontantEncais ?? 0) - (pa.MontantEncais ?? 0)) > 0.01 &&
                                                           pa.DateRefPaie < DateTime.Now.AddDays(-30)),
                     LastPaymentDate = payments.Max(pa => pa.DateRens),
                     NextPaymentDate = payments.Where(pa => ((pa.MontantEncais ?? 0) - (pa.MontantEncais ?? 0)) > 0.01)
@@ -219,16 +232,16 @@ namespace EvoConnect.Server.Repository
             try
             {
                 var planApplique = await _context.PlansAppliques
-                    .FirstOrDefaultAsync(pa => 
-                        pa.IdPatient == patientId && 
-                        pa.CodePlan == codePlan && 
+                    .FirstOrDefaultAsync(pa =>
+                        pa.IdPatient == patientId &&
+                        pa.CodePlan == codePlan &&
                         pa.NumDate == numDate);
 
                 if (planApplique == null)
                     return false;
 
                 planApplique.Remarque = status.ToString();
-                
+
                 await _context.SaveChangesAsync();
                 return true;
             }
@@ -290,14 +303,14 @@ namespace EvoConnect.Server.Repository
             try
             {
                 var monthlyRevenue = await _context.PlansAppliques
-                    .Where(pa => pa.TypeRegle == 0 && 
-                                pa.DateRens.HasValue && 
+                    .Where(pa => pa.TypeRegle == 0 &&
+                                pa.DateRens.HasValue &&
                                 pa.DateRens.Value.Year == year)
                     .GroupBy(pa => pa.DateRens.Value.Month)
                     .Select(g => new { Month = g.Key, Total = g.Sum(pa => pa.MontantEncais ?? 0) })
                     .ToDictionaryAsync(x => x.Month, x => x.Total);
 
-             
+
                 var result = new Dictionary<int, float>();
                 for (int i = 1; i <= 12; i++)
                 {
@@ -317,8 +330,8 @@ namespace EvoConnect.Server.Repository
             try
             {
                 var payments = await _context.PlansAppliques
-                    .Where(pa => pa.TypeRegle == 0 && 
-                                pa.DateRens.HasValue && 
+                    .Where(pa => pa.TypeRegle == 0 &&
+                                pa.DateRens.HasValue &&
                                 pa.DateRens.Value.Year == year)
                     .Select(pa => new { pa.DateRens, pa.MontantEncais })
                     .ToListAsync();
@@ -340,9 +353,9 @@ namespace EvoConnect.Server.Repository
             try
             {
                 var yearlyRevenue = await _context.PlansAppliques
-                    .Where(pa => pa.TypeRegle == 0 && 
-                                pa.DateRens.HasValue && 
-                                pa.DateRens.Value.Year >= startYear && 
+                    .Where(pa => pa.TypeRegle == 0 &&
+                                pa.DateRens.HasValue &&
+                                pa.DateRens.Value.Year >= startYear &&
                                 pa.DateRens.Value.Year <= endYear)
                     .GroupBy(pa => pa.DateRens.Value.Year)
                     .Select(g => new { Year = g.Key, Total = g.Sum(pa => pa.MontantEncais ?? 0) })
@@ -423,10 +436,10 @@ namespace EvoConnect.Server.Repository
             if (!string.IsNullOrWhiteSpace(filters.PatientName))
             {
                 var name = filters.PatientName.ToLower();
-                query = query.Where(pa => 
+                query = query.Where(pa =>
                     (pa.Patient.Personne.PerNom != null && pa.Patient.Personne.PerNom.ToLower().Contains(name)) ||
                     (pa.Patient.Personne.PerPrenom != null && pa.Patient.Personne.PerPrenom.ToLower().Contains(name)) ||
-                    (pa.Patient.Personne.PerNom != null && pa.Patient.Personne.PerPrenom != null && 
+                    (pa.Patient.Personne.PerNom != null && pa.Patient.Personne.PerPrenom != null &&
                      (pa.Patient.Personne.PerNom + " " + pa.Patient.Personne.PerPrenom).ToLower().Contains(name)));
             }
 
@@ -483,20 +496,20 @@ namespace EvoConnect.Server.Repository
             // Apply sorting
             query = request.Sorting.SortBy switch
             {
-                PaymentSortFields.Date => request.Sorting.Direction == SortDirection.Descending 
-                    ? query.OrderByDescending(pa => pa.DateRens) 
+                PaymentSortFields.Date => request.Sorting.Direction == SortDirection.Descending
+                    ? query.OrderByDescending(pa => pa.DateRens)
                     : query.OrderBy(pa => pa.DateRens),
-                PaymentSortFields.PaymentRefDate => request.Sorting.Direction == SortDirection.Descending 
-                    ? query.OrderByDescending(pa => pa.DateRefPaie) 
+                PaymentSortFields.PaymentRefDate => request.Sorting.Direction == SortDirection.Descending
+                    ? query.OrderByDescending(pa => pa.DateRefPaie)
                     : query.OrderBy(pa => pa.DateRefPaie),
-                PaymentSortFields.Amount => request.Sorting.Direction == SortDirection.Descending 
-                    ? query.OrderByDescending(pa => pa.Montant) 
+                PaymentSortFields.Amount => request.Sorting.Direction == SortDirection.Descending
+                    ? query.OrderByDescending(pa => pa.Montant)
                     : query.OrderBy(pa => pa.Montant),
-                PaymentSortFields.CollectedAmount => request.Sorting.Direction == SortDirection.Descending 
-                    ? query.OrderByDescending(pa => pa.MontantEncais) 
+                PaymentSortFields.CollectedAmount => request.Sorting.Direction == SortDirection.Descending
+                    ? query.OrderByDescending(pa => pa.MontantEncais)
                     : query.OrderBy(pa => pa.MontantEncais),
-                PaymentSortFields.PatientName => request.Sorting.Direction == SortDirection.Descending 
-                    ? query.OrderByDescending(pa => pa.Patient.Personne.PerNom) 
+                PaymentSortFields.PatientName => request.Sorting.Direction == SortDirection.Descending
+                    ? query.OrderByDescending(pa => pa.Patient.Personne.PerNom)
                     : query.OrderBy(pa => pa.Patient.Personne.PerNom),
                 _ => query.OrderByDescending(pa => pa.DateRens)
             };
@@ -636,7 +649,7 @@ namespace EvoConnect.Server.Repository
                 var planAppliques = await _context.PlansAppliques
                     .Include(pa => pa.Patient)
                         .ThenInclude(p => p.Personne)
-                    .Where(pa => (pa.MontantEncais - (pa.MontantEncais ?? 0)) > 0.01 && 
+                    .Where(pa => (pa.MontantEncais - (pa.MontantEncais ?? 0)) > 0.01 &&
                                 pa.TypeRegle == 0 &&
                                 pa.DateRefPaie < cutoffDate)
                     .OrderBy(pa => pa.DateRefPaie)
@@ -657,8 +670,8 @@ namespace EvoConnect.Server.Repository
                 var planAppliques = await _context.PlansAppliques
                     .Include(pa => pa.Patient)
                         .ThenInclude(p => p.Personne)
-                    .Where(pa => pa.DateRemBanque.HasValue && 
-                                pa.DateRemBanque.Value.Date == depositDate.Date && 
+                    .Where(pa => pa.DateRemBanque.HasValue &&
+                                pa.DateRemBanque.Value.Date == depositDate.Date &&
                                 pa.TypeRegle == 0)
                     .OrderByDescending(pa => pa.MontantEncais)
                     .ToListAsync();
