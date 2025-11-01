@@ -11,11 +11,11 @@ namespace EvoConnect.Server.Controllers
     [ApiController]
     [Route("api/[controller]")]
     public class KpiController(
-IPaymentDA _paymentDA,
-        IActesRepository _actesRepository, IKpiConfigRepository _repository, IAppointmentsDA _appointmentsDA) : ControllerBase
+        IPaymentDA _paymentDA,
+        IActesRepository _actesRepository, 
+        IKpiConfigRepository _repository, 
+        IAppointmentsDA _appointmentsDA) : ControllerBase
     {
-
-
         /// <summary>
         /// Get all currently enabled KPI configurations
         /// </summary>
@@ -30,6 +30,39 @@ IPaymentDA _paymentDA,
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error retrieving KPI configurations", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get KPI statistics for today
+        /// </summary>
+        [HttpGet("stats")]
+        public async Task<ActionResult<KpiStatsResponse>> GetStats()
+        {
+            try
+            {
+                var start = DateTime.Today;
+                var end = DateTime.Today.AddDays(1).AddSeconds(-1);
+                
+                var appointments = await _appointmentsDA.GetAppointmentStatsAsync(start, end);
+                var realisedActesCount = await _actesRepository.GetTodayRealisedActesCount();
+                var encaiss = await _actesRepository.GetTodayRealisedActesEncaiss();
+                var totalPayment = await _paymentDA.GetTotalPaymentsToday();
+                
+                return Ok(new KpiStatsResponse
+                {
+                    TotalAppointments = appointments.Sum(a => a.TotalAppointments),
+                    CancelledAppointments = appointments.Sum(a => a.CancelledAppointments),
+                    CompletedAppointments = appointments.Sum(a => a.CompletedAppointments),
+                    RealisedActesCount = realisedActesCount,
+                    Encaiss = encaiss,
+                    TotalPayment = totalPayment,
+                    FetchedAt = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
             }
         }
 
@@ -93,27 +126,8 @@ IPaymentDA _paymentDA,
                 return StatusCode(500, new { message = "Error saving KPI configurations", error = ex.Message });
             }
         }
-        public async Task<ActionResult<KpiBatchSaveResponse>> GetStats()
-        {
-            var start = DateTime.Today;
-            var end = DateTime.Today.AddDays(1).AddSeconds(-1);
-            var appoinments = await _appointmentsDA.GetAppointmentStatsAsync(start, end);
-            var relaisedActesCount = await _actesRepository.GetTodayRealisedActesCount();
-            var encaiss = await _actesRepository.GetTodayRealisedActesEncaiss();
-            
-            var totalPayment = await _paymentDA.GetTotalPaymentsToday();
-            return Ok(new
-            {
-                TotalAppointments =appoinments.Sum(a => a.TotalAppointments),
-                CancelledAppointments =appoinments.Sum(a => a.CancelledAppointments),
-                CompletedAppointments =appoinments.Sum(a => a.CompletedAppointments),
-                relaisedActesCount,
-                encaiss,
-                totalPayment
-            });
-        }
-
     }
+
     public class KpiBatchSaveRequest
     {
         [System.Text.Json.Serialization.JsonPropertyName("configs")]
@@ -162,5 +176,16 @@ IPaymentDA _paymentDA,
         public int SavedCount { get; set; }
         public string Message { get; set; }
         public List<KpiConfig> Configs { get; set; }
+    }
+
+    public class KpiStatsResponse
+    {
+        public int TotalAppointments { get; set; }
+        public int CancelledAppointments { get; set; }
+        public int CompletedAppointments { get; set; }
+        public int RealisedActesCount { get; set; }
+        public float Encaiss { get; set; }
+        public float TotalPayment { get; set; }
+        public DateTime FetchedAt { get; set; }
     }
 }
