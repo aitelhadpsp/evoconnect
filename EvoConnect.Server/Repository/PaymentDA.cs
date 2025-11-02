@@ -9,14 +9,9 @@ using EvoConnect.Server.Repository.Interfaces;
 
 namespace EvoConnect.Server.Repository
 {
-    public class PaymentDA : IPaymentDA
+    public class PaymentDA(ClinicDbContext context) : IPaymentDA
     {
-        private readonly ClinicDbContext _context;
-
-        public PaymentDA(ClinicDbContext context)
-        {
-            _context = context;
-        }
+        private readonly ClinicDbContext _context = context;
 
         public async Task<PaginatedResult<PaymentDto>> GetPaginatedPaymentsAsync(PaymentFilterRequest request)
         {
@@ -641,6 +636,35 @@ namespace EvoConnect.Server.Repository
             }
         }
 
+        public async Task<Dictionary<DateTime, float>> GetDailyRevenueAsync(DateTime fromDate, DateTime toDate)
+        {
+            try
+            {
+                // Get payments within the date range, grouped by day
+                var dailyRevenue = await _context.PlansAppliques
+                    .Where(pa => pa.TypeRegle == 0 &&
+                                pa.DateRens.HasValue &&
+                                pa.DateRens.Value.Date >= fromDate.Date &&
+                                pa.DateRens.Value.Date <= toDate.Date)
+                    .GroupBy(pa => pa.DateRens.Value.Date)
+                    .Select(g => new { Date = g.Key, Total = g.Sum(pa => pa.MontantEncais ?? 0) })
+                    .ToDictionaryAsync(x => x.Date, x => x.Total);
+
+                // Fill in missing days with 0
+                var result = new Dictionary<DateTime, float>();
+                for (var date = fromDate.Date; date <= toDate.Date; date = date.AddDays(1))
+                {
+                    result[date] = dailyRevenue.ContainsKey(date) ? dailyRevenue[date] : 0.0f;
+                }
+
+                return result;
+            }
+            catch (Exception)
+            {
+                return new Dictionary<DateTime, float>();
+            }
+        }
+
         public async Task<List<PaymentDto>> GetOverduePaymentsAsync(int daysPastDue = 30)
         {
             try
@@ -682,6 +706,69 @@ namespace EvoConnect.Server.Repository
             {
                 return new List<PaymentDto>();
             }
+        }
+
+        #endregion
+        #region Date Gap Filling Helper Methods
+
+        /// <summary>
+        /// Fills missing days in a date range with zero values
+        /// </summary>
+        private Dictionary<DateTime, float> FillDailyGaps(Dictionary<DateTime, float> data, DateTime fromDate, DateTime toDate)
+        {
+            var result = new Dictionary<DateTime, float>();
+
+            for (var date = fromDate.Date; date <= toDate.Date; date = date.AddDays(1))
+            {
+                result[date] = data.ContainsKey(date) ? data[date] : 0.0f;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Fills missing months in a year with zero values
+        /// </summary>
+        private Dictionary<int, float> FillMonthlyGaps(Dictionary<int, float> data, int startMonth = 1, int endMonth = 12)
+        {
+            var result = new Dictionary<int, float>();
+
+            for (int month = startMonth; month <= endMonth; month++)
+            {
+                result[month] = data.ContainsKey(month) ? data[month] : 0.0f;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Fills missing weeks in a year with zero values (1-53)
+        /// </summary>
+        private Dictionary<int, float> FillWeeklyGaps(Dictionary<int, float> data, int maxWeeks = 53)
+        {
+            var result = new Dictionary<int, float>();
+
+            for (int week = 1; week <= maxWeeks; week++)
+            {
+                result[week] = data.ContainsKey(week) ? data[week] : 0.0f;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Fills missing years in a range with zero values
+        /// </summary>
+        private Dictionary<int, float> FillYearlyGaps(Dictionary<int, float> data, int startYear, int endYear)
+        {
+            var result = new Dictionary<int, float>();
+
+            for (int year = startYear; year <= endYear; year++)
+            {
+                result[year] = data.ContainsKey(year) ? data[year] : 0.0f;
+            }
+
+            return result;
         }
 
         #endregion

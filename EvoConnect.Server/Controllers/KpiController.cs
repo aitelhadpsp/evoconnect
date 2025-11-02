@@ -71,6 +71,28 @@ namespace EvoConnect.Server.Controllers
                 return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
             }
         }
+        [HttpGet("stats/productivity")]
+        public async Task<ActionResult<KpiStatsResponse>> GetProductivityStats()
+        {
+            try
+            {
+                var start = DateTime.Today.AddDays(-30);
+                var end = DateTime.Today.AddDays(1).AddSeconds(-1);
+                var LastMonthPayments = await _paymentDA.GetDailyRevenueAsync(start, end);
+                var BeforeLastMonthPayments = await _paymentDA.GetDailyRevenueAsync(start.AddMonths(-1), end.AddMonths(-1));
+                
+                return Ok(new
+                {
+                    LastMonthPayments,
+                    BeforeLastMonthPayments
+
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
+            }
+        }
 
         /// <summary>
         /// Save a batch of KPI configurations (disables old, enables new)

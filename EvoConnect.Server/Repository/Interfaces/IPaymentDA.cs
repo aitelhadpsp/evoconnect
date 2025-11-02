@@ -18,6 +18,8 @@ namespace EvoConnect.Server.Repository.Interfaces
 
         Task<List<PaymentDto>> GetPaymentsByPatientIdAsync(int patientId);
         public Task<float> GetTotalPaymentsToday();
+        public Task<Dictionary<DateTime, float>> GetDailyRevenueAsync(DateTime fromDate, DateTime toDate);
+
 
         /// <summary>
         /// Get payment details by ID
