@@ -705,12 +705,18 @@ namespace EvoConnect.Server.Repository
                 const int monthsWithoutAppointment = 16;
 
                 var cutoffDate = DateTime.Now.AddMonths(-monthsWithoutAppointment);
-                var lostPatients = await _context.Patients
-                    .WithPersonne()
-                    .Where(p => p.Personne.IdPersonne > 0)
-                    .Where(p => !_context.RendezVous.Any(rdv => rdv.IdPersonne == p.IdPersonne && rdv.RdvDate >= cutoffDate))
+                var patientsWithRecentAppointments = await _context.RendezVous
+        .Where(rdv => rdv.RdvDate >= cutoffDate)  // ✅ RECENT appointments
+        .Select(rdv => rdv.IdPersonne)
+        .Distinct()
+        .CountAsync();
+
+                // Total patients - Active patients = Lost patients
+                var totalPatients = await _context.Patients
+                    .Where(p => p.IdPersonne > 0)
                     .CountAsync();
-                return lostPatients;
+
+                return totalPatients - patientsWithRecentAppointments;
             }
             catch (Exception)
             {

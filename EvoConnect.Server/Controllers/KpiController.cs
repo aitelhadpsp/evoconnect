@@ -56,7 +56,7 @@ namespace EvoConnect.Server.Controllers
                 {
                     TotalAppointments = appointments.Sum(a => a.TotalAppointments),
                     CancelledAppointments = appointments.Sum(a => a.CancelledAppointments),
-                    CompletedAppointments = appointments.Sum(a => a.CompletedAppointments),
+                    ArrivedAppointments = appointments.Sum(a => a.ArrivedAppointments),
                     RealisedActesCount = realisedActesCount,
                     Encaiss = encaiss,
                     NewPatientsCount = patients.Sum(p => p.Count),
@@ -81,6 +81,11 @@ namespace EvoConnect.Server.Controllers
                 var lastStart = start.AddMonths(-1);
                 var lastEnd = end.AddMonths(-1);
                 var LastMonthPayments = await _paymentDA.GetDailyRevenueAsync(start, end);
+                var paymentsToday = await _paymentDA.GetPaymentCountAsync(new PaymentFilters
+                {
+                    DateFrom = DateTime.Today,
+                    DateTo = end
+                });
                 var LastMonthappointments = (await _appointmentsDA.GetAppointmentStatsAsync(start, end)).Sum(e=> e.TotalAppointments);
 
                 var BeforeLastMonthPayments = (await _paymentDA.GetDailyRevenueAsync(lastStart, lastEnd));
@@ -92,8 +97,8 @@ namespace EvoConnect.Server.Controllers
                     LastMonthPayments,
                     BeforeLastMonthPayments,
                     LastMonthappointments,
-                    BeforeLastMonthappointments
-
+                    BeforeLastMonthappointments,
+                    paymentsToday
                 });
             }
             catch (Exception ex)
@@ -237,6 +242,7 @@ namespace EvoConnect.Server.Controllers
         public int TotalAppointments { get; set; }
         public int CancelledAppointments { get; set; }
         public int CompletedAppointments { get; set; }
+        public int ArrivedAppointments { get; set; }
         public int RealisedActesCount { get; set; }
         public int NewPatientsCount { get; set; }
         public float Encaiss { get; set; }

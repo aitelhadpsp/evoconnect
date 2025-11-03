@@ -314,7 +314,7 @@ namespace EvoConnect.Server.Repository
                     Day = r.RdvDate.Day,
                     Hour = r.RdvDate.Hour
                 })
-                .Select(g => new
+                .Select(g => new 
                 {
                     g.Key.Year,
                     g.Key.Month,
@@ -323,12 +323,13 @@ namespace EvoConnect.Server.Repository
                     TotalAppointments = g.Count(),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
                 })
                 .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day).ThenBy(x => x.Hour)
                 .ToListAsync();
 
-            return results.Select(r => new AppointmentStats
+            return [.. results.Select(r => new AppointmentStats
             {
                 Year = (int)r.Year,
                 Month = (int)r.Month,
@@ -338,9 +339,11 @@ namespace EvoConnect.Server.Repository
                 TotalAppointments = r.TotalAppointments,
                 CompletedAppointments = r.CompletedAppointments,
                 CancelledAppointments = r.CancelledAppointments,
+                 ArrivedAppointments = r.ArrivedAppointments,
+
                 AverageDuration = r.AverageDuration,
                 GroupingType = GroupingType.Hour
-            }).ToList();
+            })];
         }
 
         private async Task<List<AppointmentStats>> GroupByDay(IQueryable<RendezVous> query)
@@ -359,6 +362,7 @@ namespace EvoConnect.Server.Repository
                     g.Key.Day,
                     TotalAppointments = g.Count(),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
                 })
@@ -373,6 +377,7 @@ namespace EvoConnect.Server.Repository
                 Period = $"{r.Year:0000}-{r.Month:00}-{r.Day:00}",
                 TotalAppointments = r.TotalAppointments,
                 CompletedAppointments = r.CompletedAppointments,
+                 ArrivedAppointments = r.ArrivedAppointments,
                 CancelledAppointments = r.CancelledAppointments,
                 AverageDuration = r.AverageDuration,
                 GroupingType = GroupingType.Day
@@ -393,6 +398,7 @@ namespace EvoConnect.Server.Repository
                     g.Key.Month,
                     TotalAppointments = g.Count(),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
                 })
@@ -406,6 +412,7 @@ namespace EvoConnect.Server.Repository
                 Period = $"{r.Year:0000}-{r.Month:00}",
                 TotalAppointments = r.TotalAppointments,
                 CompletedAppointments = r.CompletedAppointments,
+                 ArrivedAppointments = r.ArrivedAppointments,
                 CancelledAppointments = r.CancelledAppointments,
                 AverageDuration = r.AverageDuration,
                 GroupingType = GroupingType.Month
@@ -420,6 +427,7 @@ namespace EvoConnect.Server.Repository
                 {
                     Year = g.Key,
                     TotalAppointments = g.Count(),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
@@ -434,6 +442,7 @@ namespace EvoConnect.Server.Repository
                 TotalAppointments = r.TotalAppointments,
                 CompletedAppointments = r.CompletedAppointments,
                 CancelledAppointments = r.CancelledAppointments,
+                 ArrivedAppointments = r.ArrivedAppointments,
                 AverageDuration = r.AverageDuration,
                 GroupingType = GroupingType.Year
             }).ToList();

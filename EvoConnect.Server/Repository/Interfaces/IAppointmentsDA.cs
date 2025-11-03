@@ -38,6 +38,7 @@ public class AppointmentStats
     public int TotalAppointments { get; set; }
     public int CompletedAppointments { get; set; }
     public int CancelledAppointments { get; set; }
+    public int ArrivedAppointments { get; set; }
     public double AverageDuration { get; set; }
     public GroupingType GroupingType { get; set; }
 }
