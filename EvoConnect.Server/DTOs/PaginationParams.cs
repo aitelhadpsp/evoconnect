@@ -57,12 +57,12 @@ namespace EvoConnect.Server.DTOs
         /// <summary>
         /// Minimum total revenue filter
         /// </summary>
-        public decimal? MinRevenue { get; set; }
+        public double? MinRevenue { get; set; }
 
         /// <summary>
         /// Maximum total revenue filter
         /// </summary>
-        public decimal? MaxRevenue { get; set; }
+        public double? MaxRevenue { get; set; }
 
         /// <summary>
         /// Sort by: "revenue_desc", "revenue_asc", "last_visit_oldest", "last_visit_newest", "name_asc", "priority"

@@ -8,8 +8,8 @@ namespace EvoConnect.Server.DTOs;
         public string? Phone { get; set; }
         public string? Email { get; set; }
 
-        public decimal TotalRevenue { get; set; }
-        public decimal AnnualRevenue { get; set; }
+        public double TotalRevenue { get; set; }
+        public double AnnualRevenue { get; set; }
 
         public DateTime? LastAppointmentDate { get; set; }
         public int? DaysSinceLastVisit { get; set; }
