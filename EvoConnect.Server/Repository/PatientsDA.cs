@@ -7,7 +7,6 @@ using EvoConnect.Server.Data;
 using EvoConnect.Server.Repository.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using EvoConnect.Server.DTOs;
-using FirebirdSql.Data.FirebirdClient;
 
 namespace EvoConnect.Server.Repository
 {
@@ -699,269 +698,192 @@ namespace EvoConnect.Server.Repository
                 return new List<PatientCreationStatistic>();
             }
         }
-        public async Task<PagedResponse<VipPatientDto>> GetVipPatientsPaginated(VipPatientFilterParams filterParams)
-        {
-            try
+
+ public async Task<PagedResponse<VipPatientDto>> GetVipPatientsPaginated(VipPatientFilterParams filterParams)
+{
+    try
+    {
+        // Get configuration values
+        var vipLastVisitMonths = await _context.KpiConfigs
+            .Where(e => e.KpiCode == "VIP_LAST_VISIT_MONTHS")
+            .Select(e => (int)(e.TargetValue ?? 12))
+            .FirstOrDefaultAsync();
+
+        var vipMinTotalRevenue = await _context.KpiConfigs
+            .Where(e => e.KpiCode == "VIP_TOTAL_REVENUE")
+            .Select(e => (decimal)(e.TargetValue ?? 5000))
+            .FirstOrDefaultAsync();
+
+        var vipMinAnnualRevenue = await _context.KpiConfigs
+            .Where(e => e.KpiCode == "VIP_ANNUAL_REVENUE")
+            .Select(e => (decimal)(e.TargetValue ?? 2000))
+            .FirstOrDefaultAsync();
+
+        var cutoffDate = DateTime.Now.AddMonths(-vipLastVisitMonths);
+        var oneYearAgo = DateTime.Now.AddYears(-1);
+
+        // Step 1: Get all payments with patient info
+        var paymentsQuery = await _context.PlansAppliques
+            .Where(p => p.MontantEncais.HasValue && p.MontantEncais.Value > 0)
+            .Select(p => new
             {
-                // Get configuration values (consider caching these!)
-                var vipLastVisitMonths = await _context.KpiConfigs
-                    .Where(e => e.KpiCode == "VIP_LAST_VISIT_MONTHS")
-                    .Select(e => (int)(e.TargetValue ?? 12))
-                    .FirstOrDefaultAsync();
+                p.IdPatient,
+                p.MontantEncais,
+                p.DateRens
+            })
+            .ToListAsync();
 
-                var vipMinTotalRevenue = await _context.KpiConfigs
-                    .Where(e => e.KpiCode == "VIP_TOTAL_REVENUE")
-                    .Select(e => (decimal)(e.TargetValue ?? 5000))
-                    .FirstOrDefaultAsync();
-
-                var vipMinAnnualRevenue = await _context.KpiConfigs
-                    .Where(e => e.KpiCode == "VIP_ANNUAL_REVENUE")
-                    .Select(e => (decimal)(e.TargetValue ?? 2000))
-                    .FirstOrDefaultAsync();
-
-                var cutoffDate = DateTime.Now.AddMonths(-vipLastVisitMonths);
-                var oneYearAgo = DateTime.Now.AddYears(-1);
-
-                // Build WHERE clause dynamically based on filters
-                var whereConditions = new List<string>();
-                var parameters = new List<FbParameter>
-        {
-            new FbParameter("@MinTotalRevenue", (double)vipMinTotalRevenue),
-            new FbParameter("@MinAnnualRevenue", (double)vipMinAnnualRevenue),
-            new FbParameter("@OneYearAgo", oneYearAgo),
-            new FbParameter("@CutoffDate", cutoffDate)
-        };
-
-                // Status filter
-                if (!string.IsNullOrEmpty(filterParams.Status))
-                {
-                    if (filterParams.Status == "À risque")
-                    {
-                        whereConditions.Add("(vip.TotalRevenue >= @MinTotalRevenue AND (vip.LastAppointmentDate IS NULL OR vip.LastAppointmentDate < @CutoffDate))");
-                    }
-                    else // "VIP Actif"
-                    {
-                        whereConditions.Add("(vip.TotalRevenue >= @MinTotalRevenue AND vip.LastAppointmentDate IS NOT NULL AND vip.LastAppointmentDate >= @CutoffDate)");
-                    }
-                }
-
-                // Revenue filters
-                if (filterParams.MinRevenue.HasValue)
-                {
-                    whereConditions.Add("vip.TotalRevenue >= @MinRevenueFilter");
-                    parameters.Add(new FbParameter("@MinRevenueFilter", (double)filterParams.MinRevenue.Value));
-                }
-
-                if (filterParams.MaxRevenue.HasValue)
-                {
-                    whereConditions.Add("vip.TotalRevenue <= @MaxRevenueFilter");
-                    parameters.Add(new FbParameter("@MaxRevenueFilter", (double)filterParams.MaxRevenue.Value));
-                }
-
-                // Search filter
-                if (!string.IsNullOrEmpty(filterParams.SearchQuery))
-                {
-                    whereConditions.Add(@"(
-                UPPER(vip.LastName) CONTAINING UPPER(@SearchQuery) OR
-                UPPER(vip.FirstName) CONTAINING UPPER(@SearchQuery) OR
-                vip.Phone CONTAINING @SearchQuery OR
-                UPPER(vip.Email) CONTAINING UPPER(@SearchQuery)
-            )");
-                    parameters.Add(new FbParameter("@SearchQuery", filterParams.SearchQuery));
-                }
-
-                var whereClause = whereConditions.Any() ? "WHERE " + string.Join(" AND ", whereConditions) : "";
-
-                // Build ORDER BY clause
-                var orderByClause = (filterParams.SortBy?.ToLower()) switch
-                {
-                    "revenue_desc" => "ORDER BY vip.TotalRevenue DESC",
-                    "revenue_asc" => "ORDER BY vip.TotalRevenue ASC",
-                    "last_visit_oldest" => "ORDER BY vip.LastAppointmentDate NULLS FIRST",
-                    "last_visit_newest" => "ORDER BY vip.LastAppointmentDate DESC NULLS LAST",
-                    "name_asc" => "ORDER BY vip.LastName, vip.FirstName",
-                    _ => "ORDER BY vip.IsAtRisk DESC, vip.TotalRevenue DESC"
-                };
-
-                // Get total count first (without pagination)
-                var countSql = $@"
-            WITH PatientRevenue AS (
-                SELECT 
-                    pa.ID_PATIENT,
-                    SUM(COALESCE(pa.MONTANT_ENCAIS, 0)) AS TotalRevenue,
-                    SUM(CASE WHEN pa.DATE_RENS >= @OneYearAgo THEN COALESCE(pa.MONTANT_ENCAIS, 0) ELSE 0 END) AS AnnualRevenue
-                FROM PLAN_APPLIQUE pa
-                WHERE pa.MONTANT_ENCAIS IS NOT NULL AND pa.MONTANT_ENCAIS > 0
-                GROUP BY pa.ID_PATIENT
-                HAVING SUM(COALESCE(pa.MONTANT_ENCAIS, 0)) >= @MinTotalRevenue 
-                    OR SUM(CASE WHEN pa.DATE_RENS >= @OneYearAgo THEN COALESCE(pa.MONTANT_ENCAIS, 0) ELSE 0 END) >= @MinAnnualRevenue
-            ),
-            PatientAppointments AS (
-                SELECT 
-                    rv.ID_PERSONNE,
-                    MAX(rv.RDV_DATE) AS LastAppointmentDate,
-                    COUNT(CASE WHEN rv.RDV_DATE >= @OneYearAgo THEN 1 ELSE NULL END) AS AppointmentCount
-                FROM RENDEZ_VOUS rv
-                WHERE rv.ID_PERSONNE IN (SELECT ID_PATIENT FROM PatientRevenue)
-                GROUP BY rv.ID_PERSONNE
-            ),
-            VipPatients AS (
-                SELECT 
-                    p.ID_PERSONNE AS PatientId,
-                    per.PER_NOM AS LastName,
-                    COALESCE(per.PER_PRENOM, '') AS FirstName,
-                    COALESCE(per.PER_TELPRINC, per.GSM) AS Phone,
-                    per.PER_EMAIL AS Email,
-                    CAST(pr.TotalRevenue AS DECIMAL(18,2)) AS TotalRevenue,
-                    CAST(pr.AnnualRevenue AS DECIMAL(18,2)) AS AnnualRevenue,
-                    pa.LastAppointmentDate,
-                    COALESCE(pa.AppointmentCount, 0) AS VisitFrequency,
-                    CASE WHEN pa.LastAppointmentDate IS NOT NULL 
-                         THEN CAST((CURRENT_TIMESTAMP - pa.LastAppointmentDate) AS INTEGER)
-                         ELSE NULL END AS DaysSinceLastVisit,
-                    CASE WHEN CAST(pr.TotalRevenue AS DECIMAL(18,2)) >= @MinTotalRevenue 
-                              AND (pa.LastAppointmentDate IS NULL OR pa.LastAppointmentDate < @CutoffDate)
-                         THEN 1 ELSE 0 END AS IsAtRisk,
-                    CASE WHEN CAST(pr.TotalRevenue AS DECIMAL(18,2)) >= @MinTotalRevenue 
-                              AND pa.LastAppointmentDate IS NOT NULL 
-                              AND pa.LastAppointmentDate >= @CutoffDate
-                         THEN 1 ELSE 0 END AS IsActive
-                FROM PatientRevenue pr
-                INNER JOIN PATIENT p ON pr.ID_PATIENT = p.ID_PERSONNE
-                INNER JOIN PERSONNE per ON p.ID_PERSONNE = per.ID_PERSONNE
-                LEFT JOIN PatientAppointments pa ON p.ID_PERSONNE = pa.ID_PERSONNE
-            )
-            SELECT COUNT(*) FROM VipPatients vip
-            {whereClause}";
-
-                // Get paginated data
-                var skipRows = (filterParams.PageNumber - 1) * filterParams.PageSize;
-                var dataSql = $@"
-            WITH PatientRevenue AS (
-                SELECT 
-                    pa.ID_PATIENT,
-                    SUM(COALESCE(pa.MONTANT_ENCAIS, 0)) AS TotalRevenue,
-                    SUM(CASE WHEN pa.DATE_RENS >= @OneYearAgo THEN COALESCE(pa.MONTANT_ENCAIS, 0) ELSE 0 END) AS AnnualRevenue
-                FROM PLAN_APPLIQUE pa
-                WHERE pa.MONTANT_ENCAIS IS NOT NULL AND pa.MONTANT_ENCAIS > 0
-                GROUP BY pa.ID_PATIENT
-                HAVING SUM(COALESCE(pa.MONTANT_ENCAIS, 0)) >= @MinTotalRevenue 
-                    OR SUM(CASE WHEN pa.DATE_RENS >= @OneYearAgo THEN COALESCE(pa.MONTANT_ENCAIS, 0) ELSE 0 END) >= @MinAnnualRevenue
-            ),
-            PatientAppointments AS (
-                SELECT 
-                    rv.ID_PERSONNE,
-                    MAX(rv.RDV_DATE) AS LastAppointmentDate,
-                    COUNT(CASE WHEN rv.RDV_DATE >= @OneYearAgo THEN 1 ELSE NULL END) AS AppointmentCount
-                FROM RENDEZ_VOUS rv
-                WHERE rv.ID_PERSONNE IN (SELECT ID_PATIENT FROM PatientRevenue)
-                GROUP BY rv.ID_PERSONNE
-            ),
-            VipPatients AS (
-                SELECT 
-                    p.ID_PERSONNE AS PatientId,
-                    per.PER_NOM AS LastName,
-                    COALESCE(per.PER_PRENOM, '') AS FirstName,
-                    COALESCE(per.PER_TELPRINC, per.GSM) AS Phone,
-                    per.PER_EMAIL AS Email,
-                    CAST(pr.TotalRevenue AS DECIMAL(18,2)) AS TotalRevenue,
-                    CAST(pr.AnnualRevenue AS DECIMAL(18,2)) AS AnnualRevenue,
-                    pa.LastAppointmentDate,
-                    COALESCE(pa.AppointmentCount, 0) AS VisitFrequency,
-                    CASE WHEN pa.LastAppointmentDate IS NOT NULL 
-                         THEN CAST((CURRENT_TIMESTAMP - pa.LastAppointmentDate) AS INTEGER)
-                         ELSE NULL END AS DaysSinceLastVisit,
-                    CASE WHEN CAST(pr.TotalRevenue AS DECIMAL(18,2)) >= @MinTotalRevenue 
-                              AND (pa.LastAppointmentDate IS NULL OR pa.LastAppointmentDate < @CutoffDate)
-                         THEN 1 ELSE 0 END AS IsAtRisk,
-                    CASE WHEN CAST(pr.TotalRevenue AS DECIMAL(18,2)) >= @MinTotalRevenue 
-                              AND pa.LastAppointmentDate IS NOT NULL 
-                              AND pa.LastAppointmentDate >= @CutoffDate
-                         THEN 1 ELSE 0 END AS IsActive
-                FROM PatientRevenue pr
-                INNER JOIN PATIENT p ON pr.ID_PATIENT = p.ID_PERSONNE
-                INNER JOIN PERSONNE per ON p.ID_PERSONNE = per.ID_PERSONNE
-                LEFT JOIN PatientAppointments pa ON p.ID_PERSONNE = pa.ID_PERSONNE
-            )
-            SELECT FIRST {filterParams.PageSize} SKIP {skipRows}
-                vip.PatientId,
-                vip.LastName,
-                vip.FirstName,
-                vip.Phone,
-                vip.Email,
-                vip.TotalRevenue,
-                vip.AnnualRevenue,
-                vip.LastAppointmentDate,
-                vip.VisitFrequency,
-                vip.DaysSinceLastVisit,
-                vip.IsAtRisk,
-                vip.IsActive
-            FROM VipPatients vip
-            {whereClause}
-            {orderByClause}";
-
-                var connection = _context.Database.GetDbConnection();
-                await connection.OpenAsync();
-
-                int totalCount;
-                var items = new List<VipPatientDto>();
-
-                // Get total count
-                using (var countCommand = connection.CreateCommand())
-                {
-                    countCommand.CommandText = countSql;
-                    countCommand.Parameters.AddRange(parameters.ToArray());
-                    totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
-                }
-
-                // Get paginated data
-                using (var dataCommand = connection.CreateCommand())
-                {
-                    dataCommand.CommandText = dataSql;
-                    dataCommand.Parameters.AddRange(parameters.Select(p => p.Value).ToArray());
-
-                    using (var reader = await dataCommand.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            var daysSinceLastVisit = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
-                            var monthsSinceLastVisit = daysSinceLastVisit.HasValue ? daysSinceLastVisit.Value / 30 : (int?)null;
-                            var lastAppointmentDate = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7);
-                            var isAtRisk = reader.GetInt32(10) == 1;
-
-                            items.Add(new VipPatientDto
-                            {
-                                PatientId = reader.GetInt32(0),
-                                LastName = reader.GetString(1),
-                                FirstName = reader.IsDBNull(2) ? "" : reader.GetString(2),
-                                Phone = reader.IsDBNull(3) ? null : reader.GetString(3),
-                                Email = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                TotalRevenue = reader.GetDecimal(5),
-                                AnnualRevenue = reader.GetDecimal(6),
-                                LastAppointmentDate = lastAppointmentDate,
-                                VisitFrequency = reader.GetInt32(8),
-                                DaysSinceLastVisit = daysSinceLastVisit,
-                                MonthsSinceLastVisit = monthsSinceLastVisit,
-                                LastVisitDisplay = lastAppointmentDate != null
-                                    ? $"Il y a {monthsSinceLastVisit ?? 0} mois"
-                                    : "Aucune visite",
-                                IsAtRisk = isAtRisk,
-                                IsActive = reader.GetInt32(11) == 1,
-                                Status = isAtRisk ? "À risque" : "VIP Actif"
-                            });
-                        }
-                    }
-                }
-
-                return new PagedResponse<VipPatientDto>(items, totalCount, filterParams.PageNumber, filterParams.PageSize);
-            }
-            catch (Exception ex)
+        // Step 2: Calculate revenue per patient in memory
+        var patientRevenues = paymentsQuery
+            .GroupBy(p => p.IdPatient)
+            .Select(g => new
             {
-                throw new Exception($"Error retrieving VIP patients: {ex.Message}", ex);
-            }
+                PatientId = g.Key,
+                TotalRevenue = g.Sum(x => x.MontantEncais ?? 0),
+                AnnualRevenue = g
+                    .Where(x => x.DateRens.HasValue && x.DateRens.Value >= oneYearAgo)
+                    .Sum(x => x.MontantEncais ?? 0)
+            })
+            .Where(p => p.TotalRevenue >= (double)vipMinTotalRevenue || p.AnnualRevenue >= (double)vipMinAnnualRevenue)
+            .ToList();
+
+        // Step 3: Get patient IDs that meet revenue criteria
+        var qualifiedPatientIds = patientRevenues.Select(p => p.PatientId).ToList();
+
+        if (!qualifiedPatientIds.Any())
+        {
+            return new PagedResponse<VipPatientDto>(
+                new List<VipPatientDto>(), 
+                0, 
+                filterParams.PageNumber, 
+                filterParams.PageSize
+            );
         }
 
-        public async Task<List<VipPatientDto>> GetVipPatientsDetailed()
+        // Step 4: Get patient details
+        var patients = await _context.Patients
+            .Include(p => p.Personne)
+            .Where(p => qualifiedPatientIds.Contains(p.IdPersonne))
+            .Select(p => new
+            {
+                p.IdPersonne,
+                LastName = p.Personne.PerNom,
+                FirstName = p.Personne.PerPrenom,
+                Phone = p.Personne.PerTelPrinc ?? p.Personne.Gsm,
+                Email = p.Personne.PerEmail
+            })
+            .ToListAsync();
+
+        // Step 5: Get appointment data
+        var appointmentData = await _context.RendezVous
+            .Where(r => qualifiedPatientIds.Contains(r.IdPersonne))
+            .GroupBy(r => r.IdPersonne)
+            .Select(g => new
+            {
+                PatientId = g.Key,
+                LastAppointmentDate = g.Max(r => (DateTime?)r.RdvDate),
+                AppointmentCount = g.Count(r => r.RdvDate >= oneYearAgo)
+            })
+            .ToListAsync();
+
+        // Step 6: Combine all data in memory
+        var allPatients = patients.Select(p =>
+        {
+            var revenue = patientRevenues.First(r => r.PatientId == p.IdPersonne);
+            var apptData = appointmentData.FirstOrDefault(a => a.PatientId == p.IdPersonne);
+            var lastAppointmentDate = apptData?.LastAppointmentDate;
+            
+            var daysSinceLastVisit = lastAppointmentDate.HasValue
+                ? (int)(DateTime.Now - lastAppointmentDate.Value).TotalDays
+                : (int?)null;
+            
+            var monthsSinceLastVisit = daysSinceLastVisit.HasValue
+                ? daysSinceLastVisit.Value / 30
+                : (int?)null;
+            
+            var isAtRisk = revenue.TotalRevenue >= (double)vipMinTotalRevenue &&
+                          (lastAppointmentDate == null || lastAppointmentDate < cutoffDate);
+
+            return new VipPatientDto
+            {
+                PatientId = p.IdPersonne,
+                LastName = p.LastName,
+                FirstName = p.FirstName ?? "",
+                Phone = p.Phone,
+                Email = p.Email,
+                TotalRevenue = revenue.TotalRevenue, 
+                AnnualRevenue = revenue.AnnualRevenue,
+                LastAppointmentDate = lastAppointmentDate,
+                DaysSinceLastVisit = daysSinceLastVisit,
+                MonthsSinceLastVisit = monthsSinceLastVisit,
+                LastVisitDisplay = lastAppointmentDate != null
+                    ? $"Il y a {monthsSinceLastVisit ?? 0} mois"
+                    : "Aucune visite",
+                VisitFrequency = apptData?.AppointmentCount ?? 0,
+                IsAtRisk = isAtRisk,
+                IsActive = revenue.TotalRevenue >= (double)vipMinTotalRevenue &&
+                          lastAppointmentDate != null &&
+                          lastAppointmentDate >= cutoffDate,
+                Status = isAtRisk ? "À risque" : "VIP Actif"
+            };
+        }).ToList();
+
+        // Step 7: Apply filters in memory
+        IEnumerable<VipPatientDto> filteredPatients = allPatients;
+
+        if (!string.IsNullOrEmpty(filterParams.Status))
+        {
+            filteredPatients = filteredPatients.Where(p => p.Status == filterParams.Status);
+        }
+
+        if (filterParams.MinRevenue.HasValue)
+        {
+            filteredPatients = filteredPatients.Where(p => p.TotalRevenue >= filterParams.MinRevenue.Value);
+        }
+ 
+        if (filterParams.MaxRevenue.HasValue)
+        {
+            filteredPatients = filteredPatients.Where(p => p.TotalRevenue <= filterParams.MaxRevenue.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filterParams.SearchQuery))
+        {
+            var searchLower = filterParams.SearchQuery.ToLower();
+            filteredPatients = filteredPatients.Where(p =>
+                p.LastName.ToLower().Contains(searchLower) ||
+                (p.FirstName != null && p.FirstName.ToLower().Contains(searchLower)) ||
+                (p.Phone != null && p.Phone.Contains(searchLower)) ||
+                (p.Email != null && p.Email.ToLower().Contains(searchLower))
+            );
+        }
+
+        // Step 8: Apply sorting
+        filteredPatients = filterParams.SortBy?.ToLower() switch
+        {
+            "revenue_desc" => filteredPatients.OrderByDescending(x => x.TotalRevenue),
+            "revenue_asc" => filteredPatients.OrderBy(x => x.TotalRevenue),
+            "last_visit_oldest" => filteredPatients.OrderBy(x => x.LastAppointmentDate ?? DateTime.MinValue),
+            "last_visit_newest" => filteredPatients.OrderByDescending(x => x.LastAppointmentDate ?? DateTime.MinValue),
+            "name_asc" => filteredPatients.OrderBy(x => x.LastName).ThenBy(x => x.FirstName),
+            _ => filteredPatients.OrderByDescending(x => x.IsAtRisk)
+                                 .ThenByDescending(x => x.TotalRevenue)
+        };
+
+        var totalCount = filteredPatients.Count();
+
+        // Step 9: Apply pagination
+        var items = filteredPatients
+            .Skip((filterParams.PageNumber - 1) * filterParams.PageSize)
+            .Take(filterParams.PageSize)
+            .ToList();
+
+        return new PagedResponse<VipPatientDto>(items, totalCount, filterParams.PageNumber, filterParams.PageSize);
+    }
+    catch (Exception ex)
+    {
+        throw new Exception($"Error retrieving VIP patients: {ex.Message}", ex);
+    }
+}        public async Task<List<VipPatientDto>> GetVipPatientsDetailed()
         {
             var allPatients = await GetVipPatientsPaginated(new VipPatientFilterParams
             {
