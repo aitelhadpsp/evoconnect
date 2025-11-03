@@ -12,9 +12,9 @@ namespace EvoConnect.Server.Controllers
     [Route("api/[controller]")]
     public class KpiController(
         IPaymentDA _paymentDA,
-        IPatientsDA _patientsDA, 
-        IActesRepository _actesRepository, 
-        IKpiConfigRepository _repository, 
+        IPatientsDA _patientsDA,
+        IActesRepository _actesRepository,
+        IKpiConfigRepository _repository,
         IAppointmentsDA _appointmentsDA) : ControllerBase
     {
         /// <summary>
@@ -51,7 +51,7 @@ namespace EvoConnect.Server.Controllers
                 var patients = await _patientsDA.GetPatientCreationStatisticsAsync(start, end);
                 var lostPatients = await _patientsDA.GetLostPatients();
                 var activePatients = await _patientsDA.GetTotalActivePatients();
-                
+
                 return Ok(new KpiStatsResponse
                 {
                     TotalAppointments = appointments.Sum(a => a.TotalAppointments),
@@ -72,15 +72,41 @@ namespace EvoConnect.Server.Controllers
             }
         }
         [HttpGet("stats/productivity")]
-        public async Task<ActionResult<KpiStatsResponse>> GetProductivityStats()
+        public async Task<ActionResult> GetProductivityStats()
         {
             try
             {
                 var start = DateTime.Today.AddDays(-30);
                 var end = DateTime.Today.AddDays(1).AddSeconds(-1);
+                var lastStart = start.AddMonths(-1);
+                var lastEnd = end.AddMonths(-1);
                 var LastMonthPayments = await _paymentDA.GetDailyRevenueAsync(start, end);
-                var BeforeLastMonthPayments = await _paymentDA.GetDailyRevenueAsync(start.AddMonths(-1), end.AddMonths(-1));
-                
+                var LastMonthappointments = (await _appointmentsDA.GetAppointmentStatsAsync(start, end)).Sum(e=> e.TotalAppointments);
+
+                var BeforeLastMonthPayments = (await _paymentDA.GetDailyRevenueAsync(lastStart, lastEnd));
+                var BeforeLastMonthappointments = (await _appointmentsDA.GetAppointmentStatsAsync(lastStart, lastEnd)).Sum(e=> e.TotalAppointments);
+
+
+                return Ok(new
+                {
+                    LastMonthPayments,
+                    BeforeLastMonthPayments,
+                    LastMonthappointments,
+                    BeforeLastMonthappointments
+
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
+            }
+        }
+        [HttpGet("stats/vip-patients")]
+        public async Task<ActionResult> GetVipPatientStats()
+        {
+            try
+            {
+            
                 return Ok(new
                 {
                     LastMonthPayments,
