@@ -8,8 +8,8 @@ namespace EvoConnect.Server.DTOs;
         public string? Phone { get; set; }
         public string? Email { get; set; }
 
-        public double TotalRevenue { get; set; }
-        public double AnnualRevenue { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public decimal AnnualRevenue { get; set; }
 
         public DateTime? LastAppointmentDate { get; set; }
         public int? DaysSinceLastVisit { get; set; }
@@ -57,3 +57,18 @@ namespace EvoConnect.Server.DTOs;
             }
         }
     }
+public class VipPatientRawDto
+{
+    public int PatientId { get; set; }
+    public string LastName { get; set; }
+    public string FirstName { get; set; }
+    public string Phone { get; set; }
+    public string Email { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public decimal AnnualRevenue { get; set; }
+    public DateTime? LastAppointmentDate { get; set; }
+    public int VisitFrequency { get; set; }
+    public int? DaysSinceLastVisit { get; set; }
+    public bool IsAtRisk { get; set; }
+    public bool IsActive { get; set; }
+}
