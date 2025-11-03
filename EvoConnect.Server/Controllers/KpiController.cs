@@ -101,7 +101,7 @@ namespace EvoConnect.Server.Controllers
                 return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
             }
         }
-        [HttpGet("stats/vip-patients")]
+ /*        [HttpGet("stats/vip-patients")]
         public async Task<ActionResult> GetVipPatientStats()
         {
             try
@@ -118,7 +118,7 @@ namespace EvoConnect.Server.Controllers
             {
                 return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
             }
-        }
+        } */
 
         /// <summary>
         /// Save a batch of KPI configurations (disables old, enables new)
