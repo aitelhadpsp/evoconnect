@@ -87,7 +87,6 @@ namespace EvoConnect.Server.Controllers
                     DateTo = end
                 });
                 var LastMonthappointments = (await _appointmentsDA.GetAppointmentStatsAsync(start, end)).Sum(e=> e.TotalAppointments);
-
                 var BeforeLastMonthPayments = (await _paymentDA.GetDailyRevenueAsync(lastStart, lastEnd));
                 var BeforeLastMonthappointments = (await _appointmentsDA.GetAppointmentStatsAsync(lastStart, lastEnd)).Sum(e=> e.TotalAppointments);
 
@@ -106,24 +105,7 @@ namespace EvoConnect.Server.Controllers
                 return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
             }
         }
- /*        [HttpGet("stats/vip-patients")]
-        public async Task<ActionResult> GetVipPatientStats()
-        {
-            try
-            {
-            
-                return Ok(new
-                {
-                    LastMonthPayments,
-                    BeforeLastMonthPayments
 
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Error retrieving KPI statistics", error = ex.Message });
-            }
-        } */
 
         /// <summary>
         /// Save a batch of KPI configurations (disables old, enables new)

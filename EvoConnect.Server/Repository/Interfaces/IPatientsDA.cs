@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EvoConnect.Server.DTOs;
 
 namespace EvoConnect.Server.Repository.Interfaces
 {
@@ -13,12 +14,17 @@ namespace EvoConnect.Server.Repository.Interfaces
         Task<DetailedPatientEngagementStatistics> GetDetailedPatientEngagementStatisticsAsync();
         public Task<int> GetLostPatients();
         public Task<int> GetTotalActivePatients();
+        Task<PagedResponse<VipPatientDto>> GetVipPatientsPaginated(VipPatientFilterParams filterParams);
         Task<int> GetPatientCountAsync(PatientFilters filters);
         Task<EvocomPatientDto> GetPatientByIdAsync(int patientId);
         Task<PaginatedResult<EvocomPatientDto>> SearchPatientsAsync(string searchText, int pageNumber = 1, int pageSize = 20);
         public Task<List<PatientCreationStatistic>> GetPatientCreationStatisticsAsync(DateTime fromDate, DateTime toDate);
 
     }
+
+
+
+
     public class DetailedPatientEngagementStatistics
 {
     public int TotalPatients { get; set; }

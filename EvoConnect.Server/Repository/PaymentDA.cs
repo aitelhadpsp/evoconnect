@@ -640,7 +640,7 @@ namespace EvoConnect.Server.Repository
         {
             try
             {
-                // Get payments within the date range, grouped by day
+                
                 var dailyRevenue = await _context.PlansAppliques
                     .Where(pa => pa.TypeRegle == 0 &&
                                 pa.DateRens.HasValue &&

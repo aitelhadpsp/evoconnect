@@ -12,7 +12,6 @@ namespace EvoConnect.Server.Models
         [Column("ID_PERSONNE")]
         public int IdPersonne { get; set; }
 
-        // These can be NULL in database (T_IDENTIFIANT domain allows NULL)
         [Column("PER_ID_PERSONNE")]
         public int? PerIdPersonne { get; set; }
 
@@ -210,7 +209,6 @@ namespace EvoConnect.Server.Models
         [StringLength(255)]
         public string? CommNextRdv { get; set; }
 
-        // These have NOT NULL DEFAULT values in database
         [Column("PAT_COLOR")]
         public int PatColor { get; set; } = -1;
 
@@ -261,7 +259,6 @@ namespace EvoConnect.Server.Models
         [StringLength(255)]
         public string? RemarqueHospital { get; set; }
 
-        // Navigation properties
         [ForeignKey("IdPersonne")]
         public Personne Personne { get; set; }
 
