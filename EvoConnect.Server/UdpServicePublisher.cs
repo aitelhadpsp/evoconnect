@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using EvoConnect.Common;
 
 namespace EvoConnect.Server;
 
@@ -17,7 +18,7 @@ public class UdpServicePublisher : BackgroundService
         _udpClient.JoinMulticastGroup(IPAddress.Parse(MulticastAddress));
         _multicastEndpoint = new IPEndPoint(IPAddress.Parse(MulticastAddress), Port);
         
-        var message = "evoconnect";
+        var message = AppData.IsServer() ? "evoconnect-server" : "evoconnect-client";
         var data = Encoding.UTF8.GetBytes(message);
         
         while (!stoppingToken.IsCancellationRequested)
