@@ -24,7 +24,7 @@ public class AuthController : ControllerBase
         {
             return Unauthorized(new { message = result.Message });
         }
-
+        var gestion =result.User!.Gestion?.Trim() ;
         return Ok(new
         {
             token = result.Token,
@@ -33,7 +33,7 @@ public class AuthController : ControllerBase
                 id = result.User?.IdUtil,
                 username = result.User?.Identifiant,
                 personneId = result.User?.IdPersonne,
-                gestion = result.User?.Gestion,
+                gestion = string.IsNullOrWhiteSpace(gestion) ? "ASSIS" : gestion,
             }
         });
     }
