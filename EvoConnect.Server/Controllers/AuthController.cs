@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EvoConnect.Server.Repository.Interfaces;
+using System.Security;
 namespace EvoConnect.Server.Controllers;
 
 [ApiController]
@@ -29,9 +30,11 @@ public class AuthController : ControllerBase
             token = result.Token,
             user = new
             {
-                id = result.User.IdUtil,
-                username = result.User.Identifiant,
-                personneId = result.User.IdPersonne
+                id = result.User?.IdUtil,
+                username = result.User?.Identifiant,
+                personneId = result.User?.IdPersonne,
+                role = result.User?.Type,
+                Permissions = result.User?.Droits,
             }
         });
     }
