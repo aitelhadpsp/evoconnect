@@ -33,8 +33,7 @@ public class AuthController : ControllerBase
                 id = result.User?.IdUtil,
                 username = result.User?.Identifiant,
                 personneId = result.User?.IdPersonne,
-                role = result.User?.Type,
-                Permissions = result.User?.Droits,
+                gestion = result.User?.Gestion,
             }
         });
     }
