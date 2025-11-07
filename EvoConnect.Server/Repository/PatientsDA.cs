@@ -1039,105 +1039,79 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
             {
                 var stats = new DetailedPatientEngagementStatistics();
 
-                // Get total patient count
-                var totalPatients = await _context.Patients
-                    .WithPersonne()
-                    .Where(p => p.Personne.IdPersonne > 0)
-                    .CountAsync();
 
-                stats.TotalPatients = totalPatients;
-
-                if (totalPatients == 0)
-                {
-                    return stats;
-                }
-
-                // Step 1: Get all patient IDs
-                var allPatientIds = await _context.Patients
-                    .WithPersonne()
-                    .Where(p => p.Personne.IdPersonne > 0)
-                    .Select(p => p.IdPersonne)
-                    .ToListAsync();
-
-                var patientIdSet = new HashSet<int>(allPatientIds);
+                var allPatients=await _context.Patients.Where(e => e.IdPersonne > 0).CountAsync();
 
                 // Step 2: Get distinct patient IDs with any appointment
                 var patientsWithAppointments = await _context.RendezVous
-                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne))
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
-                    .ToListAsync();
-                var patientsWithAppointmentsSet = new HashSet<int>(patientsWithAppointments);
+                    .CountAsync();
 
                 // Step 3: Get distinct patient IDs who showed up (RdvStatut = 1)
                 var patientsWhoShowedUp = await _context.RendezVous
-                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 1)
+                    .Where(rdv =>  !string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
-                    .ToListAsync();
-                var patientsWhoShowedUpSet = new HashSet<int>(patientsWhoShowedUp);
+                    .CountAsync();
 
                 // Step 4: Get distinct patient IDs with cancelled appointments (RdvStatut = 2)
                 var patientsWithCancelled = await _context.RendezVous
-                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 2)
+                    .Where(rdv =>  rdv.RdvStatut == 2)
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
-                    .ToListAsync();
-                var patientsWithCancelledSet = new HashSet<int>(patientsWithCancelled);
+                    .CountAsync();
 
                 // Step 5: Get distinct patient IDs with no-show appointments (RdvStatut = 3)
                 var patientsWithNoShow = await _context.RendezVous
-                    .Where(rdv => patientIdSet.Contains(rdv.IdPersonne) && rdv.RdvStatut == 3)
+                    .Where(rdv =>  string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
-                    .ToListAsync();
-                var patientsWithNoShowSet = new HashSet<int>(patientsWithNoShow);
+                    .CountAsync();
 
                 // Step 6: Get distinct patient IDs with realized treatments (ApRealise = 1)
                 var patientsWithRealizedTreatments = await _context.DentalisActesPatient
-                    .Where(acte => patientIdSet.Contains(acte.ApPatient) && acte.ApRealise == 1)
+                    .Where(acte => acte.ApRealise == 1)
                     .Select(acte => acte.ApPatient)
                     .Distinct()
-                    .ToListAsync();
-                var patientsWithRealizedTreatmentsSet = new HashSet<int>(patientsWithRealizedTreatments);
+                    .CountAsync();
 
                 // Step 7: Get distinct patient IDs with planned treatments (ApRealise = 0)
                 var patientsWithPlannedTreatments = await _context.DentalisActesPatient
-                    .Where(acte => patientIdSet.Contains(acte.ApPatient) && acte.ApRealise == 0)
+                    .Where(acte => acte.ApRealise == 0)
                     .Select(acte => acte.ApPatient)
                     .Distinct()
-                    .ToListAsync();
-                var patientsWithPlannedTreatmentsSet = new HashSet<int>(patientsWithPlannedTreatments);
+                    .CountAsync();
 
                 // Calculate all statistics in memory using HashSet operations
 
                 // 1. No appointments
-                stats.PatientsWithNoAppointments = allPatientIds.Count(id => !patientsWithAppointmentsSet.Contains(id));
-                stats.PatientsWithNoAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoAppointments, totalPatients);
+                stats.PatientsWithNoAppointments =  patientsWithAppointments;
+                stats.PatientsWithNoAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoAppointments, allPatients);
 
                 // 2. Has appointments but never showed up
-                stats.PatientsWithAppointmentsButNeverShowedUp = patientsWithAppointments.Count(id => !patientsWhoShowedUpSet.Contains(id));
-                stats.PatientsWithAppointmentsButNeverShowedUpPercentage = CalculatePercentage(stats.PatientsWithAppointmentsButNeverShowedUp, totalPatients);
+                stats.PatientsWithAppointmentsButNeverShowedUp = patientsWhoShowedUp;
+                stats.PatientsWithAppointmentsButNeverShowedUpPercentage = CalculatePercentage(stats.PatientsWithAppointmentsButNeverShowedUp, allPatients);
 
                 // 3. No realized treatments
-                stats.PatientsWithNoRealizedTreatments = allPatientIds.Count(id => !patientsWithRealizedTreatmentsSet.Contains(id));
-                stats.PatientsWithNoRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithNoRealizedTreatments, totalPatients);
+                stats.PatientsWithNoRealizedTreatments = patientsWithRealizedTreatments;
+                stats.PatientsWithNoRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithNoRealizedTreatments, allPatients);
 
                 // 4. Has realized treatments
-                stats.PatientsWithRealizedTreatments = patientsWithRealizedTreatments.Count;
-                stats.PatientsWithRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithRealizedTreatments, totalPatients);
+                stats.PatientsWithRealizedTreatments = patientsWithRealizedTreatments;
+                stats.PatientsWithRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithRealizedTreatments, allPatients);
 
                 // 5. Planned but not realized treatments
-                stats.PatientsWithPlannedButNotRealizedTreatments = patientsWithPlannedTreatments.Count(id => !patientsWithRealizedTreatmentsSet.Contains(id));
-                stats.PatientsWithPlannedButNotRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithPlannedButNotRealizedTreatments, totalPatients);
+                stats.PatientsWithPlannedButNotRealizedTreatments = patientsWithRealizedTreatments;
+                stats.PatientsWithPlannedButNotRealizedTreatmentsPercentage = CalculatePercentage(stats.PatientsWithPlannedButNotRealizedTreatments, allPatients);
 
                 // 6. No-show appointments
-                stats.PatientsWithNoShowAppointments = patientsWithNoShow.Count;
-                stats.PatientsWithNoShowAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoShowAppointments, totalPatients);
+                stats.PatientsWithNoShowAppointments = patientsWithNoShow;
+                stats.PatientsWithNoShowAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoShowAppointments, allPatients);
 
                 // 7. Cancelled appointments
-                stats.PatientsWithCancelledAppointments = patientsWithCancelled.Count;
-                stats.PatientsWithCancelledAppointmentsPercentage = CalculatePercentage(stats.PatientsWithCancelledAppointments, totalPatients);
+                stats.PatientsWithCancelledAppointments = patientsWithCancelled;
+                stats.PatientsWithCancelledAppointmentsPercentage = CalculatePercentage(stats.PatientsWithCancelledAppointments, allPatients);
 
                 return stats;
             }
