@@ -1038,7 +1038,7 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
             try
             {
                 var stats = new DetailedPatientEngagementStatistics();
-
+                
 
                 var allPatients=await _context.Patients.Where(e => e.IdPersonne > 0).CountAsync();
 
@@ -1057,17 +1057,13 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
 
                 // Step 4: Get distinct patient IDs with cancelled appointments (RdvStatut = 2)
                 var patientsWithCancelled = await _context.RendezVous
-                    .Where(rdv =>  rdv.RdvStatut == 2)
+                    .Where(rdv =>  rdv.RdvStatut == 5)
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
                     .CountAsync();
 
                 // Step 5: Get distinct patient IDs with no-show appointments (RdvStatut = 3)
-                var patientsWithNoShow = await _context.RendezVous
-                    .Where(rdv =>  string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
-                    .Select(rdv => rdv.IdPersonne)
-                    .Distinct()
-                    .CountAsync();
+                var patientsWithNoShow = allPatients - patientsWhoShowedUp;
 
                 // Step 6: Get distinct patient IDs with realized treatments (ApRealise = 1)
                 var patientsWithRealizedTreatments = await _context.DentalisActesPatient
