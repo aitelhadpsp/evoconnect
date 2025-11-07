@@ -35,10 +35,11 @@ namespace EvoConnect.Server.Controllers
 		}
 
 		[HttpGet("patients/{id}/images/comp")]
-		public async Task<IActionResult> GetCompImages(int id, [FromQuery] List<string> labels)
+		public async Task<IActionResult> GetCompImages(int id, [FromQuery] string labels)
 		{
-			var ids = string.Join(",", labels);
-			var data = await _partnerDA.GetPatientImagesWithLabels(id, ids);
+			var splittedLabels = labels.Split(",", StringSplitOptions.RemoveEmptyEntries).Select(l =>int.Parse(l)).ToList();
+			
+			var data = await _partnerDA.GetPatientImagesWithLabels(id, splittedLabels );
 			return Ok(data);
 		}
 

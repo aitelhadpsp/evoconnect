@@ -14,7 +14,14 @@ namespace EvoConnect.Server.Repository.Interfaces
         Task<DetailedPatientEngagementStatistics> GetDetailedPatientEngagementStatisticsAsync();
         public Task<int> GetLostPatients();
         public Task<int> GetTotalActivePatients();
-        Task<PagedResponse<VipPatientDto>> GetVipPatientsPaginated(VipPatientFilterParams filterParams);
+        public Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
+            int pageNumber = 1,
+            int pageSize = 20,
+            string status = null,           
+            decimal? minRevenue = null,
+            decimal? maxRevenue = null,
+            string sortBy = "priority",    
+            string searchQuery = null);
         Task<int> GetPatientCountAsync(PatientFilters filters);
         Task<EvocomPatientDto> GetPatientByIdAsync(int patientId);
         Task<PaginatedResult<EvocomPatientDto>> SearchPatientsAsync(string searchText, int pageNumber = 1, int pageSize = 20);
@@ -26,54 +33,54 @@ namespace EvoConnect.Server.Repository.Interfaces
 
 
     public class DetailedPatientEngagementStatistics
-{
-    public int TotalPatients { get; set; }
-    
-    // No appointments
-    public int PatientsWithNoAppointments { get; set; }
-    public decimal PatientsWithNoAppointmentsPercentage { get; set; }
-    
-    // Appointments but never showed up
-    public int PatientsWithAppointmentsButNeverShowedUp { get; set; }
-    public decimal PatientsWithAppointmentsButNeverShowedUpPercentage { get; set; }
-    
-    // No-show appointments
-    public int PatientsWithNoShowAppointments { get; set; }
-    public decimal PatientsWithNoShowAppointmentsPercentage { get; set; }
-    
-    // Cancelled appointments
-    public int PatientsWithCancelledAppointments { get; set; }
-    public decimal PatientsWithCancelledAppointmentsPercentage { get; set; }
-    
-    // No realized treatments
-    public int PatientsWithNoRealizedTreatments { get; set; }
-    public decimal PatientsWithNoRealizedTreatmentsPercentage { get; set; }
-    
-    // Realized treatments
-    public int PatientsWithRealizedTreatments { get; set; }
-    public decimal PatientsWithRealizedTreatmentsPercentage { get; set; }
-    
-    // Planned but not realized
-    public int PatientsWithPlannedButNotRealizedTreatments { get; set; }
-    public decimal PatientsWithPlannedButNotRealizedTreatmentsPercentage { get; set; }
-}
+    {
+        public int TotalPatients { get; set; }
+
+        // No appointments
+        public int PatientsWithNoAppointments { get; set; }
+        public decimal PatientsWithNoAppointmentsPercentage { get; set; }
+
+        // Appointments but never showed up
+        public int PatientsWithAppointmentsButNeverShowedUp { get; set; }
+        public decimal PatientsWithAppointmentsButNeverShowedUpPercentage { get; set; }
+
+        // No-show appointments
+        public int PatientsWithNoShowAppointments { get; set; }
+        public decimal PatientsWithNoShowAppointmentsPercentage { get; set; }
+
+        // Cancelled appointments
+        public int PatientsWithCancelledAppointments { get; set; }
+        public decimal PatientsWithCancelledAppointmentsPercentage { get; set; }
+
+        // No realized treatments
+        public int PatientsWithNoRealizedTreatments { get; set; }
+        public decimal PatientsWithNoRealizedTreatmentsPercentage { get; set; }
+
+        // Realized treatments
+        public int PatientsWithRealizedTreatments { get; set; }
+        public decimal PatientsWithRealizedTreatmentsPercentage { get; set; }
+
+        // Planned but not realized
+        public int PatientsWithPlannedButNotRealizedTreatments { get; set; }
+        public decimal PatientsWithPlannedButNotRealizedTreatmentsPercentage { get; set; }
+    }
 
     public class PatientEngagementStatistics
     {
         public int TotalPatients { get; set; }
-        
+
         // No appointments statistics
         public int PatientsWithNoAppointments { get; set; }
         public decimal PatientsWithNoAppointmentsPercentage { get; set; }
-        
+
         // Appointments but never showed up
         public int PatientsWithAppointmentsButNeverShowedUp { get; set; }
         public decimal PatientsWithAppointmentsButNeverShowedUpPercentage { get; set; }
-        
+
         // No realized treatments
         public int PatientsWithNoRealizedTreatments { get; set; }
         public decimal PatientsWithNoRealizedTreatmentsPercentage { get; set; }
-        
+
         // At least one realized treatment
         public int PatientsWithRealizedTreatments { get; set; }
         public decimal PatientsWithRealizedTreatmentsPercentage { get; set; }
@@ -268,7 +275,7 @@ namespace EvoConnect.Server.Repository.Interfaces
             (DateTime.Now - LastAppointment.Value).Days : -1;
     }
     // Supporting models and enums
-public class PatientCreationStatistic
+    public class PatientCreationStatistic
     {
         public DateTime Date { get; set; }
         public int Count { get; set; }

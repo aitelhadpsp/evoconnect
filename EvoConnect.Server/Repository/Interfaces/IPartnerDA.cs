@@ -13,7 +13,7 @@ namespace EvoConnect.Server.Repository.Interfaces
         public Task<List<ImageDocument>> GetPatientImages(int id,string? labels);
         public Task<ImageDocument> GetImage(int id);
         public Task UpdateImagePath(int id,string path ,string ext);
-        public Task<ImageDocument?> GetPatientImagesWithLabels(int id, string labels);
+        public Task<ImageDocument?> GetPatientImagesWithLabels(int id, List<int> labels);
         public Task<ImageDocument> AddImage(int id,string name,string ext);
         public Task<bool> TogglePatientImageLabel(int id, int labelId);
         public Task DeleteImage(int id);

@@ -3,10 +3,12 @@ using System.Text.Json.Serialization;
 using EvoConnect.Common;
 using EvoConnect.Common.Models;
 using EvoConnect.Server;
+using EvoConnect.Server.Background;
 using EvoConnect.Server.Data;
 using EvoConnect.Server.Initializers;
 using EvoConnect.Server.Repository;
 using EvoConnect.Server.Repository.Interfaces;
+using EvoConnect.Server.Services;
 using EvoConnect.Server.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -88,6 +90,13 @@ services.AddScoped<IKpiConfigRepository, KpiConfigRepository>();
 
 services.AddHostedService<DataCollector>();
 services.AddHostedService<UdpServicePublisher>();
+
+if (AppData.IsServer())
+{
+    builder.Services.AddScoped<VipStatsRefreshService>();
+    builder.Services.AddHostedService<VipStatsBackgroundService>();
+}
+
 
 var app = builder.Build();
 app.UseAuthentication();

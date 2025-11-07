@@ -102,11 +102,11 @@ namespace EvoConnect.Server.Repository
             }
         }
 
-        public async Task<ImageDocument?> GetPatientImagesWithLabels(int id, string labels)
+        public async Task<ImageDocument?> GetPatientImagesWithLabels(int id, List<int> labels)
         {
             try
             {
-                var labelList = labels.Split(',').Select(l => l.Trim()).ToList();
+                var labelList = labels.Select(l => l).ToList();
                 var labelCount = labelList.Count;
 
                 // Trouver les objets qui ont TOUTES les étiquettes spécifiées
@@ -114,7 +114,7 @@ namespace EvoConnect.Server.Repository
                     .Include(o => o.ObjetEtiquettes)
                     .Where(o => o.IdPatient == id)
                     .Where(o => o.ObjetEtiquettes
-                        .Count(oe => labelList.Contains(oe.Etiquette.Nom)) == labelCount)
+                        .Count(oe => labelList.Contains(oe.Etiquette.PkEtiquette)) == labelCount)
                     .Select(o => new
                     {
                         o.PkObjet,

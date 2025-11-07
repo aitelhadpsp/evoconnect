@@ -16,12 +16,25 @@ namespace EvoConnect.Server.Controllers
         private readonly IPatientsDA _patientsDA = patientsDA;
 
         [HttpGet]
-        public async Task<ActionResult<PagedResponse<VipPatientDto>>> GetVipPatients(
-            [FromQuery] VipPatientFilterParams filterParams)
+        public async Task<ActionResult<PaginatedResult<VipPatientDto>>> GetVipPatients(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string status = null,
+            [FromQuery] decimal? minRevenue = null,
+            [FromQuery] decimal? maxRevenue = null,
+            [FromQuery] string sortBy = "priority",
+            [FromQuery] string searchQuery = null)
         {
             try
             {
-                var result = await _patientsDA.GetVipPatientsPaginated(filterParams);
+                var result = await _patientsDA.GetVipPatientsPaginated(
+                    pageNumber,
+                    pageSize,
+                    status,
+                    minRevenue,
+                    maxRevenue,
+                    sortBy,
+                    searchQuery);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -34,7 +47,7 @@ namespace EvoConnect.Server.Controllers
             }
         }
 
-       
-       
+
+
     }
 }

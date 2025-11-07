@@ -20,17 +20,38 @@ namespace EvoConnect.Server.Initializers
         /// </summary>
         public async Task InitializeAsync()
         {
+
+            var scripts = new List<string>
+            {
+                "create_kpi.sql",
+                "create_indexes.sql",
+                "create_vip_state.sql",
+                "SP_REFRESH_VIP_STATS.sql",
+
+            };
             try
             {
                 using var connection = new FbConnection(_connectionString);
                 await connection.OpenAsync();
-
-                string sqlScript = GetInitializationScript();
-                
-                using var command = new FbCommand(sqlScript, connection);
-                command.CommandTimeout = 120; // 2 minutes
-                
-                await command.ExecuteNonQueryAsync();
+                foreach (var scriptFile in scripts)
+                { try
+                {
+                     string scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sql", scriptFile);
+                    if (File.Exists(scriptPath))
+                    {
+                        string sqlScript = File.ReadAllText(scriptPath);
+                        using var command = new FbCommand(sqlScript, connection);
+                        command.CommandTimeout = 120; 
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Console.WriteLine($"Error executing script: {scriptFile}",ex);
+                    throw;
+                }
+                   
+                }
                 
                 Console.WriteLine("KPI database initialized successfully");
             }
@@ -47,18 +68,6 @@ namespace EvoConnect.Server.Initializers
         public void Initialize()
         {
             InitializeAsync().GetAwaiter().GetResult();
-        }
-
-        private string GetInitializationScript()
-        {
-      
-            string scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"sql","create_kpi.sql");
-            if (File.Exists(scriptPath))
-            {
-                return File.ReadAllText(scriptPath);
-            }
-
-            return @"";
         }
     }
 }
