@@ -818,12 +818,13 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
         {
             try
             {
-                int monthsWithoutAppointment = (await _context.KpiConfigs.FirstOrDefaultAsync(e => e.KpiCode == "vip_last_visit_months")) is KpiConfig config ? (int)config.TargetValue! : 12;
+                int monthsWithoutAppointment = (await _context.KpiConfigs.FirstOrDefaultAsync(e => e.KpiCode == "VIP_LAST_VISIT_MONTHS")) is KpiConfig config ? (int)config.TargetValue! : 12;
                 var cutoffDate = DateTime.Now.AddMonths(-monthsWithoutAppointment);
                 var patientsWithRecentAppointments = await _context.RendezVous
-        .Where(rdv => rdv.RdvDate >= cutoffDate)
-        .Distinct()
-        .CountAsync();
+                    .Where(rdv => rdv.RdvDate >= cutoffDate)
+                    .Select(rdv => rdv.IdPersonne)
+                    .Distinct()
+                    .CountAsync();
 
                 // Total patients - Active patients = Lost patients
                 var totalPatients = await _context.Patients
