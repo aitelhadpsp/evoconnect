@@ -1041,6 +1041,7 @@ namespace EvoConnect.Server.Repository
 
 
                 var allPatients = await _context.Patients.Where(e => e.IdPersonne > 0).CountAsync();
+                stats.TotalPatients = allPatients;
 
                 // Step 2: Get distinct patient IDs with any appointment
                 var patientsWithAppointments = await _context.RendezVous
@@ -1053,10 +1054,8 @@ namespace EvoConnect.Server.Repository
                     .CountAsync();
 
                 // Step 3: Get distinct patient IDs who showed up (RdvStatut = 1)
-                var patientsWhoShowedUp = await _context.RendezVous
-                    .Where(rdv => !string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
-                    .Select(rdv => rdv.IdPersonne)
-                    .Distinct()
+                var patientsWhoShowedUp = await _context.Patients
+                    .Where(p =>p.RendezVous.Any() &&  p.RendezVous.Any(rdv => !string.IsNullOrWhiteSpace(rdv.RdvDate.ToString())))
                     .CountAsync();
 
                 // Step 4: Get distinct patient IDs with cancelled appointments (RdvStatut = 2)
@@ -1068,8 +1067,8 @@ namespace EvoConnect.Server.Repository
 
                 // Step 5: Get distinct patient IDs with no-show appointments (RdvStatut = 3)
 
-                var patientsWithNoShow = await _context.RendezVous
-                    .Where(rdv => string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
+                var patientsWithNoShow = await _context.Patients
+                    .Where(p =>p.RendezVous.Any() && p.RendezVous.All( rdv =>string.IsNullOrWhiteSpace(rdv.RdvDate.ToString())))
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
                     .CountAsync();
@@ -1096,7 +1095,8 @@ namespace EvoConnect.Server.Repository
                 stats.PatientsWithNoAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoAppointments, allPatients);
 
                 // 2. Has appointments but never showed up
-                stats.PatientsWithAppointmentsButNeverShowedUp = patientsWhoShowedUp;
+                stats.PatientsWithAppointmentsButNeverShowedUp = patientsWithNoShow;
+                stats.PatientsWithAppointmentsButNeverShowedUp = patientsWithNoShow;
                 stats.PatientsWithAppointmentsButNeverShowedUpPercentage = CalculatePercentage(stats.PatientsWithAppointmentsButNeverShowedUp, allPatients);
 
                 // 3. No realized treatments
