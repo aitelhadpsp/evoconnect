@@ -138,7 +138,7 @@ namespace EvoConnect.UI
         private IHost? _host;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly HttpClient _httpClient;
-        private const int ServerPort = 6222;
+        private const int ServerPort = 6236;
         private readonly string ServerUrl = $"http://localhost:{ServerPort}";
 
         public bool IsRunning { get; private set; }

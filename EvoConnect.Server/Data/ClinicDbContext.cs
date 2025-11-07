@@ -162,10 +162,7 @@ namespace EvoConnect.Server.Data
                     .WithMany(p => p.RendezVousAsProfessionnel)
                     .HasForeignKey(d => d.PerIdPersonne)
                     .OnDelete(DeleteBehavior.ClientSetNull);
-                entity.HasOne(d => d.Fauteuil)
-                    .WithMany(f => f.RendezVous)
-                    .HasForeignKey(d => d.IdFauteuil)
-                    .OnDelete(DeleteBehavior.ClientSetNull);
+         
                 entity.HasOne(d => d.Acte)
                     .WithMany(a => a.RendezVous)
                     .HasForeignKey(d => d.IdActe)

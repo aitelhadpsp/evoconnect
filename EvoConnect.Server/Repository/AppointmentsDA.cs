@@ -21,7 +21,7 @@ namespace EvoConnect.Server.Repository
                 .Include(r => r.Patient.Personne)
                 .Include(r => r.Professionnel)
                 .Include(r => r.Acte)
-                .Include(r => r.Fauteuil)
+               
                 .Where(r => r.RdvDate >= fromDate && r.RdvDate <= toDate)
                 .OrderBy(r => r.RdvDate)
                 .Select(r => new AppointmentDto
@@ -49,7 +49,8 @@ namespace EvoConnect.Server.Repository
                     ActeLibelle = r.Acte.ActeLibelle,
                     ActeCouleur = r.Acte.ActeCouleur,
                     TypeActe = r.Acte.TypeActe,
-                    FauteuilLibelle = r.Fauteuil.FautLibelle
+                    FauteuilLibelle = _context.Fauteuils.FirstOrDefault(e=>e.IdFauteuil == r.IdFauteuil).FautLibelle
+
                 })
                 .ToListAsync();
         }
@@ -157,7 +158,7 @@ namespace EvoConnect.Server.Repository
                     TotalDuration = g.Sum(x => x.RdvDuree),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
                     CancelledAppointments = g.Count(x => x.RdvStatut == 0),
-                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null)
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee.Value.Date == DateTime.Today)
                 }).FirstOrDefaultAsync() ?? new AppointmentSummaryStats();
             }
             catch (System.Exception r)
@@ -182,7 +183,7 @@ namespace EvoConnect.Server.Repository
               TotalAppointments = g.Count(),
               CompletedAppointments = g.Count(x => x.RdvStatut == 1),
               CancelledAppointments = g.Count(x => x.RdvStatut == 0),
-              ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
+              ArrivedAppointments = g.Count(x => x.RdvArrivee.Value.Date == DateTime.Today),
               AverageDuration = g.Average(x => x.RdvDuree)
           })
           .OrderBy(x => x.Date)
@@ -199,11 +200,14 @@ namespace EvoConnect.Server.Repository
         {
             var fromDate = DateTime.Now;
             var toDate = DateTime.Now.AddDays(days);
-
+        try
+        {
+            
+      
             return await _context.RendezVous
                 .Include(r => r.Patient.Personne)
                 .Include(r => r.Acte)
-                .Include(r => r.Fauteuil)
+       
                 .Where(r => r.RdvDate >= fromDate && r.RdvDate <= toDate && r.RdvStatut != 0)
                 .OrderBy(r => r.RdvDate)
                 .Select(r => new AppointmentDto
@@ -231,9 +235,14 @@ namespace EvoConnect.Server.Repository
                     ActeLibelle = r.Acte.ActeLibelle,
                     ActeCouleur = r.Acte.ActeCouleur,
                     TypeActe = r.Acte.TypeActe,
-                    FauteuilLibelle = r.Fauteuil.FautLibelle
+                    FauteuilLibelle = _context.Fauteuils.FirstOrDefault(e=>e.IdFauteuil == r.IdFauteuil).FautLibelle
                 })
-                .ToListAsync();
+                .ToListAsync();  }
+        catch (System.Exception)
+        {
+            
+            throw;
+        }
         }
 
         public async Task<List<ActeDto>> GetAllActesAsync()
@@ -306,28 +315,28 @@ namespace EvoConnect.Server.Repository
 
         private async Task<List<AppointmentStats>> GroupByHour(IQueryable<RendezVous> query)
         {
-            var results = await query
-                .GroupBy(r => new
-                {
-                    Year = r.RdvDate.Year,
-                    Month = r.RdvDate.Month,
-                    Day = r.RdvDate.Day,
-                    Hour = r.RdvDate.Hour
-                })
-                .Select(g => new 
-                {
-                    g.Key.Year,
-                    g.Key.Month,
-                    g.Key.Day,
-                    g.Key.Hour,
-                    TotalAppointments = g.Count(),
-                    CompletedAppointments = g.Count(x => x.RdvStatut == 1),
-                    CancelledAppointments = g.Count(x => x.Localisation == 5),
-                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
-                    AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
-                })
-                .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day).ThenBy(x => x.Hour)
-                .ToListAsync();
+        var results = await query
+            .GroupBy(r => new
+            {
+                Year = r.RdvDate.Year,
+                Month = r.RdvDate.Month,
+                Day = r.RdvDate.Day,
+                Hour = r.RdvDate.Hour
+            })
+            .Select(g => new 
+            {
+                g.Key.Year,
+                g.Key.Month,
+                g.Key.Day,
+                g.Key.Hour,
+                TotalAppointments = g.Count(),
+                CompletedAppointments = g.Count(x => x.RdvStatut == 1),
+                CancelledAppointments = g.Count(x => x.Localisation == 5),
+                ArrivedAppointments = g.Count(x => x.RdvArrivee.Value.Date == DateTime.Today),
+                AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
+            })
+            .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day).ThenBy(x => x.Hour)
+            .ToListAsync();
 
             return [.. results.Select(r => new AppointmentStats
             {
@@ -362,7 +371,7 @@ namespace EvoConnect.Server.Repository
                     g.Key.Day,
                     TotalAppointments = g.Count(),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
-                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee.Value.Date == DateTime.Today),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
                 })
@@ -398,7 +407,7 @@ namespace EvoConnect.Server.Repository
                     g.Key.Month,
                     TotalAppointments = g.Count(),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
-                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee.Value.Date == DateTime.Today),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0
                 })
@@ -427,7 +436,7 @@ namespace EvoConnect.Server.Repository
                 {
                     Year = g.Key,
                     TotalAppointments = g.Count(),
-                    ArrivedAppointments = g.Count(x => x.RdvArrivee != null),
+                    ArrivedAppointments = g.Count(x => x.RdvArrivee.Value.Date == DateTime.Today),
                     CompletedAppointments = g.Count(x => x.RdvStatut == 1),
                     CancelledAppointments = g.Count(x => x.Localisation == 5),
                     AverageDuration = g.Average(x => (double?)x.RdvDuree) ?? 0

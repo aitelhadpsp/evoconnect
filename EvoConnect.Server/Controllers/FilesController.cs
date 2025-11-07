@@ -89,7 +89,7 @@ namespace EvoConnect.Server.Controllers
                         <manufacturer>Meriva</manufacturer>
                         <modelName>DentalEvo UPnP Server</modelName>
                         <UDN>uuid:b0baad54-3bd0-4394-be2d-35cb53ff8e50</UDN>
-                        <presentationURL>http://localhost:6222/</presentationURL>
+                        <presentationURL>http://localhost:6236/</presentationURL>
                     </device>
                 </root>";
 

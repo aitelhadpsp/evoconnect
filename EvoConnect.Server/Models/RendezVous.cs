@@ -101,8 +101,6 @@ namespace EvoConnect.Server.Models
         [ForeignKey("PerIdPersonne")]
         public Personne Professionnel { get; set; }
 
-        [ForeignKey("IdFauteuil")]
-        public Fauteuil? Fauteuil { get; set; }
 
         [ForeignKey("IdActe")]
         public Acte Acte { get; set; } 

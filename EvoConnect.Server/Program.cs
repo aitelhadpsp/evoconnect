@@ -19,7 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.WebHost.UseUrls("http://0.0.0.0:6222");
+builder.WebHost.UseUrls("http://0.0.0.0:6236");
 
 var services = builder.Services;
 services.AddControllers()

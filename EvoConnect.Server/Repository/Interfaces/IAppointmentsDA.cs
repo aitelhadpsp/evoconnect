@@ -70,7 +70,7 @@ public class AppointmentStats
         public string ActeLibelle { get; set; } = "";
         public int ActeCouleur { get; set; }
         public int? TypeActe { get; set; }
-        public string FauteuilLibelle { get; set; } = "";
+        public string? FauteuilLibelle { get; set; } = "";
         
         // Computed properties
         public string PatientFullName => $"{PatientNom} {PatientPrenom}".Trim();

@@ -48,7 +48,7 @@ namespace EvoConnect.Server.Controllers
                 var realisedActesCount = await _actesRepository.GetTodayRealisedActesCount();
                 var encaiss = await _actesRepository.GetTodayRealisedActesEncaiss();
                 var totalPayment = await _paymentDA.GetTotalPaymentsToday();
-                var patients = await _patientsDA.GetPatientCreationStatisticsAsync(start, end);
+                var patients = (await _patientsDA.GetPatientCreationStatisticsAsync(start.AddMonths(-1), start)).Sum(p => p.Count);
                 var lostPatients = await _patientsDA.GetLostPatients();
                 var activePatients = await _patientsDA.GetTotalActivePatients();
 
@@ -59,7 +59,7 @@ namespace EvoConnect.Server.Controllers
                     ArrivedAppointments = appointments.Sum(a => a.ArrivedAppointments),
                     RealisedActesCount = realisedActesCount,
                     Encaiss = encaiss,
-                    NewPatientsCount = patients.Sum(p => p.Count),
+                    NewPatientsCount = patients,
                     TotalPayment = totalPayment,
                     FetchedAt = DateTime.UtcNow,
                     LostPatients = lostPatients,
