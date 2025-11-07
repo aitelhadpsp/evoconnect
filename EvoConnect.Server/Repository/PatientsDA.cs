@@ -979,7 +979,6 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
 
                 // 1. Patients with no appointments at all
                 var patientsWithNoAppointments = await _context.Patients
-                    .WithPersonne()
                     .Where(p => p.Personne.IdPersonne > 0)
                     .Where(p => !_context.RendezVous.Any(rdv => rdv.IdPersonne == p.IdPersonne))
                     .CountAsync();
@@ -992,7 +991,7 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
                     .WithPersonne()
                     .Where(p => p.Personne.IdPersonne > 0)
                     .Where(p => _context.RendezVous.Any(rdv => rdv.IdPersonne == p.IdPersonne))
-                    .Where(p => !_context.RendezVous.Any(rdv => rdv.IdPersonne == p.IdPersonne && rdv.RdvStatut == 1))
+                    .Where(p => _context.RendezVous.All(rdv => string.IsNullOrWhiteSpace(rdv.RdvArrivee.ToString())))
                     .CountAsync();
 
                 stats.PatientsWithAppointmentsButNeverShowedUp = patientsWithAppointmentsButNeverShowedUp;
