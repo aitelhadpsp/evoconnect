@@ -11,7 +11,7 @@ using FirebirdSql.Data.FirebirdClient;
 
 namespace EvoConnect.Server.Repository
 {
-    public class PatientsDA(ClinicDbContext _context) : IPatientsDA 
+    public class PatientsDA(ClinicDbContext _context) : IPatientsDA
     {
         public async Task<PaginatedResult<EvocomPatientDto>> GetPaginatedPatientsAsync(PatientFilterRequest request)
         {
@@ -702,71 +702,71 @@ namespace EvoConnect.Server.Repository
 
 
 
-public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
-    int pageNumber = 1,
-    int pageSize = 20,
-    string status = null,           // "Actif" or "À risque"
-    decimal? minRevenue = null,
-    decimal? maxRevenue = null,
-    string sortBy = "priority",     // "priority", "revenue", "name", "lastVisit"
-    string searchQuery = null)
-{
-    // Ensure valid page number and size
-    if (pageNumber < 1) pageNumber = 1;
-    if (pageSize < 1) pageSize = 20;
-    if (pageSize > 100) pageSize = 100;
+        public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
+            int pageNumber = 1,
+            int pageSize = 20,
+            string status = null,           // "Actif" or "À risque"
+            decimal? minRevenue = null,
+            decimal? maxRevenue = null,
+            string sortBy = "priority",     // "priority", "revenue", "name", "lastVisit"
+            string searchQuery = null)
+        {
+            // Ensure valid page number and size
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
 
-    // Build WHERE clause
-    var whereConditions = new List<string>();
-    var parameters = new List<FbParameter>();
+            // Build WHERE clause
+            var whereConditions = new List<string>();
+            var parameters = new List<FbParameter>();
 
-    if (!string.IsNullOrEmpty(status))
-    {
-        whereConditions.Add("STATUT = @STATUS");
-        parameters.Add(new FbParameter("@STATUS", status));
-    }
+            if (!string.IsNullOrEmpty(status))
+            {
+                whereConditions.Add("STATUT = @STATUS");
+                parameters.Add(new FbParameter("@STATUS", status));
+            }
 
-    if (minRevenue.HasValue)
-    {
-        whereConditions.Add("CA_ANNUEL >= @MIN_REVENUE");
-        parameters.Add(new FbParameter("@MIN_REVENUE", minRevenue.Value));
-    }
+            if (minRevenue.HasValue)
+            {
+                whereConditions.Add("CA_ANNUEL >= @MIN_REVENUE");
+                parameters.Add(new FbParameter("@MIN_REVENUE", minRevenue.Value));
+            }
 
-    if (maxRevenue.HasValue)
-    {
-        whereConditions.Add("CA_ANNUEL <= @MAX_REVENUE");
-        parameters.Add(new FbParameter("@MAX_REVENUE", maxRevenue.Value));
-    }
+            if (maxRevenue.HasValue)
+            {
+                whereConditions.Add("CA_ANNUEL <= @MAX_REVENUE");
+                parameters.Add(new FbParameter("@MAX_REVENUE", maxRevenue.Value));
+            }
 
-    if (!string.IsNullOrEmpty(searchQuery))
-    {
-        whereConditions.Add("(UPPER(NOM) CONTAINING UPPER(@SEARCH) OR UPPER(PRENOM) CONTAINING UPPER(@SEARCH))");
-        parameters.Add(new FbParameter("@SEARCH", searchQuery));
-    }
+            if (!string.IsNullOrEmpty(searchQuery))
+            {
+                whereConditions.Add("(UPPER(NOM) CONTAINING UPPER(@SEARCH) OR UPPER(PRENOM) CONTAINING UPPER(@SEARCH))");
+                parameters.Add(new FbParameter("@SEARCH", searchQuery));
+            }
 
-    var whereClause = whereConditions.Any() 
-        ? "WHERE " + string.Join(" AND ", whereConditions) 
-        : "";
+            var whereClause = whereConditions.Any()
+                ? "WHERE " + string.Join(" AND ", whereConditions)
+                : "";
 
-    // Build ORDER BY clause
-    var orderByClause = sortBy?.ToLower() switch
-    {
-        "revenue_asc" => "CA_ANNUEL ASC",
-        "revenue_desc" => "CA_ANNUEL DESC",
-        "name_asc" => "PRENOM, NOM",
-        "last_visit_oldest" => "DERNIERE_VISITE ASC NULLS LAST",
-        "last_visit_newest" => "DERNIERE_VISITE DESC NULLS LAST",
-        _ => "SORT_ORDER, CA_ANNUEL DESC" 
-    };
+            // Build ORDER BY clause
+            var orderByClause = sortBy?.ToLower() switch
+            {
+                "revenue_asc" => "CA_ANNUEL ASC",
+                "revenue_desc" => "CA_ANNUEL DESC",
+                "name_asc" => "PRENOM, NOM",
+                "last_visit_oldest" => "DERNIERE_VISITE ASC NULLS LAST",
+                "last_visit_newest" => "DERNIERE_VISITE DESC NULLS LAST",
+                _ => "SORT_ORDER, CA_ANNUEL DESC"
+            };
 
-    // Count query
-    var countSql = $@"
+            // Count query
+            var countSql = $@"
         SELECT CAST(COUNT(*) AS INTEGER) AS TOTAL_COUNT 
         FROM VIP_PATIENT_STATS
         {whereClause}";
 
-    // Data query
-    var dataSql = $@"
+            // Data query
+            var dataSql = $@"
         SELECT 
             ID_PERSONNE,
             NOM,
@@ -781,39 +781,39 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
         ORDER BY {orderByClause}
         ROWS (@PAGE_NUMBER - 1) * @PAGE_SIZE + 1 TO @PAGE_NUMBER * @PAGE_SIZE";
 
-    // Add pagination parameters
-    var allParameters = parameters.ToList();
-    allParameters.Add(new FbParameter("@PAGE_NUMBER", pageNumber));
-    allParameters.Add(new FbParameter("@PAGE_SIZE", pageSize));
+            // Add pagination parameters
+            var allParameters = parameters.ToList();
+            allParameters.Add(new FbParameter("@PAGE_NUMBER", pageNumber));
+            allParameters.Add(new FbParameter("@PAGE_SIZE", pageSize));
 
-    // Execute queries in parallel
-    var countTask = await _context.Database
-        .SqlQueryRaw<CountResult>(countSql, parameters.ToArray())
-        .FirstOrDefaultAsync();
+            // Execute queries in parallel
+            var countTask = await _context.Database
+                .SqlQueryRaw<CountResult>(countSql, parameters.ToArray())
+                .FirstOrDefaultAsync();
 
-    var itemsTask =await _context.Database
-        .SqlQueryRaw<VipPatientDto>(dataSql, allParameters.ToArray())
-        .ToListAsync();
+            var itemsTask = await _context.Database
+                .SqlQueryRaw<VipPatientDto>(dataSql, allParameters.ToArray())
+                .ToListAsync();
 
-   
 
-    var totalCount = countTask?.TOTAL_COUNT ?? 0;
-    var items = itemsTask;
 
-    return new PaginatedResult<VipPatientDto>
-    {
-        Items = items,
-        Metadata = new PaginationMetadata
-        {
-            CurrentPage = pageNumber,
-            PageSize = pageSize,
-            TotalItems = totalCount,
-            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
-            HasNext = pageNumber * pageSize < totalCount,
-            HasPrevious = pageNumber > 1
-        },
-    };
-}
+            var totalCount = countTask?.TOTAL_COUNT ?? 0;
+            var items = itemsTask;
+
+            return new PaginatedResult<VipPatientDto>
+            {
+                Items = items,
+                Metadata = new PaginationMetadata
+                {
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalItems = totalCount,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                    HasNext = pageNumber * pageSize < totalCount,
+                    HasPrevious = pageNumber > 1
+                },
+            };
+        }
         public async Task<int> GetLostPatients()
         {
             try
@@ -1038,9 +1038,9 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
             try
             {
                 var stats = new DetailedPatientEngagementStatistics();
-                
 
-                var allPatients=await _context.Patients.Where(e => e.IdPersonne > 0).CountAsync();
+
+                var allPatients = await _context.Patients.Where(e => e.IdPersonne > 0).CountAsync();
 
                 // Step 2: Get distinct patient IDs with any appointment
                 var patientsWithAppointments = await _context.RendezVous
@@ -1048,22 +1048,31 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
                     .Distinct()
                     .CountAsync();
 
+                var patientsWithNoAppointments = await _context.Patients
+                    .Where(e => !e.RendezVous.Any() && e.IdPersonne > 0)
+                    .CountAsync();
+
                 // Step 3: Get distinct patient IDs who showed up (RdvStatut = 1)
                 var patientsWhoShowedUp = await _context.RendezVous
-                    .Where(rdv =>  !string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
+                    .Where(rdv => !string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
                     .CountAsync();
 
                 // Step 4: Get distinct patient IDs with cancelled appointments (RdvStatut = 2)
                 var patientsWithCancelled = await _context.RendezVous
-                    .Where(rdv =>  rdv.RdvStatut == 5)
+                    .Where(rdv => rdv.RdvStatut == 5)
                     .Select(rdv => rdv.IdPersonne)
                     .Distinct()
                     .CountAsync();
 
                 // Step 5: Get distinct patient IDs with no-show appointments (RdvStatut = 3)
-                var patientsWithNoShow = allPatients - patientsWhoShowedUp;
+
+                var patientsWithNoShow = await _context.RendezVous
+                    .Where(rdv => string.IsNullOrWhiteSpace(rdv.RdvDate.ToString()))
+                    .Select(rdv => rdv.IdPersonne)
+                    .Distinct()
+                    .CountAsync();
 
                 // Step 6: Get distinct patient IDs with realized treatments (ApRealise = 1)
                 var patientsWithRealizedTreatments = await _context.DentalisActesPatient
@@ -1082,7 +1091,8 @@ public async Task<PaginatedResult<VipPatientDto>> GetVipPatientsPaginated(
                 // Calculate all statistics in memory using HashSet operations
 
                 // 1. No appointments
-                stats.PatientsWithNoAppointments =  patientsWithAppointments;
+                
+                stats.PatientsWithNoAppointments = patientsWithNoAppointments;
                 stats.PatientsWithNoAppointmentsPercentage = CalculatePercentage(stats.PatientsWithNoAppointments, allPatients);
 
                 // 2. Has appointments but never showed up
