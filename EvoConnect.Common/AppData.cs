@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Win32;
 using FirebirdSql.Data.FirebirdClient;
+using Microsoft.Win32;
 
 namespace EvoConnect.Common
 {
@@ -11,7 +11,7 @@ namespace EvoConnect.Common
     {
         public static string? ConnectionString()
         {
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\NEURONET\DENTALEVO");
+            RegistryKey? key = GetRegistry();
             var basePath = key?.GetValue("BaseDir")?.ToString();
             key?.Close();
 
@@ -30,7 +30,7 @@ namespace EvoConnect.Common
                 DataSource = dataSource,
                 Port = 3050,
                 Dialect = 3,
-                Charset = "NONE"
+                Charset = "NONE",
             };
 
             if (exist is not null)
@@ -44,9 +44,10 @@ namespace EvoConnect.Common
 
             return builder.ConnectionString;
         }
+
         public static string? EfConnectionString()
         {
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\NEURONET\DENTALEVO");
+            RegistryKey? key = GetRegistry();
             var basePath = key?.GetValue("BaseDir")?.ToString();
             key?.Close();
 
@@ -65,7 +66,7 @@ namespace EvoConnect.Common
                 DataSource = dataSource,
                 Port = 3050,
                 Dialect = 3,
-                Charset = "NONE"
+                Charset = "NONE",
             };
 
             if (exist is not null)
@@ -79,66 +80,82 @@ namespace EvoConnect.Common
 
             return builder.ConnectionString;
         }
+
         public static bool IsServer()
         {
-
             return RegGet("TYPE_INSTALL") == "SERVER";
-
-
         }
+
         public static string ImageDir()
         {
             return RegGet("imageriedir") ?? "";
         }
+
         public static string UploadDir()
         {
-            return RegGet("WifiDir")?? "";
+            return RegGet("WifiDir") ?? "";
         }
+
         public static void RegSet(string key, string value)
         {
             var reg = GetRegistry(true);
 
             reg?.SetValue(key, value);
-            reg.Close();
+            reg?.Close();
         }
-        public static RegistryKey GetRegistry(bool setMode = false)
+
+        public static RegistryKey? GetRegistry(bool setMode = false)
         {
-            var users = Registry.Users.GetSubKeyNames();
+            try
+            {
+                var users = Registry.Users.GetSubKeyNames();
 
-            var user = users.FirstOrDefault(e =>
-              {
-                  try
-                  {
+                var user = users.FirstOrDefault(e =>
+                {
+                    try
+                    {
+                        using var key = Registry
+                            .Users.OpenSubKey(e)
+                            ?.OpenSubKey(@"SOFTWARE\NEURONET\DENTALEVO");
+                        return key != null;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
 
-                      using var key = Registry.Users.OpenSubKey(e)?.OpenSubKey(@"SOFTWARE\NEURONET\DENTALEVO");
-                      return key != null;
-                  }
-                  catch
-                  {
-                      return false;
-                  }
+                if (user == null)
+                    return null;
 
-              });
-            return Registry.Users.OpenSubKey(user)?.OpenSubKey(@"SOFTWARE\NEURONET\DENTALEVO", setMode);
-
+                return Registry
+                    .Users.OpenSubKey(user)
+                    ?.OpenSubKey(@"SOFTWARE\NEURONET\DENTALEVO", setMode);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erreur lors de l'accès au registre: {ex.Message}");
+                return null;
+            }
         }
+
         public static string? RegGet(string key)
         {
-
             var reg = GetRegistry();
             var value = reg?.GetValue(key)?.ToString();
             reg?.Close();
 
             return value;
         }
+
         public static string? GetApiKey()
         {
             return RegGet("Apikey");
         }
+
         public static void SetApiKey(string value)
         {
             RegSet("Apikey", value);
-
         }
     }
 }
