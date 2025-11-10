@@ -17,10 +17,10 @@ public class UdpServicePublisher : BackgroundService
         _udpClient = new UdpClient();
         _udpClient.JoinMulticastGroup(IPAddress.Parse(MulticastAddress));
         _multicastEndpoint = new IPEndPoint(IPAddress.Parse(MulticastAddress), Port);
-        
+
         var message = AppData.IsServer() ? "evoconnect-server" : "evoconnect-client";
         var data = Encoding.UTF8.GetBytes(message);
-        
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
