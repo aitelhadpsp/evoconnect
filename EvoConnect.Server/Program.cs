@@ -18,170 +18,252 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 
-// Vérifier les arguments de ligne de commande pour l'installation du service
-if (args.Length > 0)
+// Fichier de log pour déboguer les problèmes de démarrage
+string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup.log");
+
+void LogToFile(string message)
 {
-    var command = args[0].ToLower();
-
-    switch (command)
+    try
     {
-        case "--install-service":
-        case "/install-service":
-            InstallService();
-            return;
-
-        case "--uninstall-service":
-        case "/uninstall-service":
-            UninstallService();
-            return;
-
-        case "--start-service":
-        case "/start-service":
-            StartServiceCommand();
-            return;
-
-        case "--stop-service":
-        case "/stop-service":
-            StopServiceCommand();
-            return;
-
-        case "--help":
-        case "/?":
-            ShowHelp();
-            return;
+        File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}\n");
     }
+    catch { }
 }
-
-var builder = WebApplication.CreateBuilder(args);
-
-// Configurer comme service Windows
-builder.Host.UseWindowsService();
-
-// Configurer le logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
-builder.Logging.AddEventLog(settings =>
-{
-    settings.SourceName = "EvoConnect";
-});
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.WebHost.UseUrls("http://0.0.0.0:6236");
-
-var services = builder.Services;
-services
-    .AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.PropertyNamingPolicy = System
-            .Text
-            .Json
-            .JsonNamingPolicy
-            .CamelCase;
-        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-    });
-
-var conn = AppData.EfConnectionString();
-
-services.AddDbContext<ClinicDbContext>(
-    options =>
-    {
-        options.UseFirebird(conn);
-    },
-    ServiceLifetime.Scoped
-);
-
-var initializer = new KpiDatabaseInitializer(conn);
 
 try
 {
-    await initializer.InitializeAsync();
-    Console.WriteLine("KPI database ready");
+    LogToFile("=== Démarrage de l'application ===");
+    LogToFile($"Arguments: {string.Join(", ", args)}");
+    LogToFile($"Working Directory: {Directory.GetCurrentDirectory()}");
+    LogToFile($"Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
+
+    // Vérifier les arguments de ligne de commande pour l'installation du service
+    if (args.Length > 0)
+    {
+        var command = args[0].ToLower();
+        LogToFile($"Commande détectée: {command}");
+
+        switch (command)
+        {
+            case "--install-service":
+            case "/install-service":
+                InstallService();
+                return;
+
+            case "--uninstall-service":
+            case "/uninstall-service":
+                UninstallService();
+                return;
+
+            case "--start-service":
+            case "/start-service":
+                StartServiceCommand();
+                return;
+
+            case "--stop-service":
+            case "/stop-service":
+                StopServiceCommand();
+                return;
+
+            case "--help":
+            case "/?":
+                ShowHelp();
+                return;
+        }
+    }
+
+    LogToFile("Création du WebApplicationBuilder...");
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Configurer comme service Windows
+    builder.Host.UseWindowsService();
+    LogToFile("Configuration Windows Service OK");
+
+    // Configurer le logging
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+
+    /*     // Ajouter le logging vers un fichier
+        builder.Logging.(
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "evoconnect-{Date}.log")
+        );
+     */
+    builder.Logging.AddEventLog(settings =>
+    {
+        settings.SourceName = "EvoConnect";
+    });
+
+    LogToFile("Configuration du logging OK");
+
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+
+    builder.WebHost.UseUrls("http://0.0.0.0:6236");
+    LogToFile("Configuration WebHost OK");
+
+    var services = builder.Services;
+    services
+        .AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+            options.JsonSerializerOptions.PropertyNamingPolicy = System
+                .Text
+                .Json
+                .JsonNamingPolicy
+                .CamelCase;
+            options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        });
+
+    LogToFile("Configuration des contrôleurs OK");
+
+    LogToFile("Récupération de la chaîne de connexion...");
+    var conn = AppData.EfConnectionString();
+    LogToFile($"Chaîne de connexion: {conn?.Substring(0, Math.Min(50, conn?.Length ?? 0))}...");
+
+    services.AddDbContext<ClinicDbContext>(
+        options =>
+        {
+            options.UseFirebird(conn);
+        },
+        ServiceLifetime.Scoped
+    );
+    LogToFile("Configuration DbContext OK");
+
+    LogToFile("Initialisation de la base de données KPI...");
+    var initializer = new KpiDatabaseInitializer(conn);
+
+    try
+    {
+        await initializer.InitializeAsync();
+        LogToFile("Base de données KPI initialisée avec succès");
+        Console.WriteLine("KPI database ready");
+    }
+    catch (Exception ex)
+    {
+        LogToFile($"ERREUR lors de l'initialisation KPI: {ex}");
+        Console.WriteLine($"Failed to initialize KPI database: {ex.Message}");
+
+        // Ne pas lancer l'exception si on est en mode service
+        // Le service doit pouvoir démarrer même si KPI échoue
+        if (!builder.Environment.IsProduction())
+        {
+            throw;
+        }
+    }
+
+    LogToFile("Configuration JWT...");
+    var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+    var secretKey = jwtSettings["SecretKey"];
+
+    if (string.IsNullOrEmpty(secretKey))
+    {
+        LogToFile("ATTENTION: SecretKey JWT non trouvée dans la configuration");
+    }
+
+    builder
+        .Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtSettings["Issuer"],
+                ValidAudience = jwtSettings["Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+            };
+        });
+
+    LogToFile("Configuration JWT OK");
+
+    services.AddEndpointsApiExplorer();
+
+    services.AddHttpContextAccessor();
+    services.AddScoped<IAppointmentsDA, AppointmentsDA>();
+    services.AddScoped<IFinancialDA, FinancialDA>();
+    services.AddScoped<IImagesDA, ImagesDA>();
+    services.AddScoped<IPartnerDA, PartnerDA>();
+    services.AddScoped<IPatientsDA, PatientsDA>();
+    services.AddScoped<IPaymentDA, PaymentDA>();
+    services.AddScoped<IActesRepository, ActesRepository>();
+    services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+    services.AddScoped<IAuthRepository, AuthRepository>();
+    services.AddSingleton<IExecuterDA, ExecuterDA>();
+    services.AddSingleton<Synchronise>();
+    services.AddSingleton<CancelationConf>();
+    services.AddScoped<IKpiConfigRepository, KpiConfigRepository>();
+
+    services.AddHostedService<DataCollector>();
+    services.AddHostedService<UdpServicePublisher>();
+
+    if (AppData.IsServer())
+    {
+        LogToFile("Mode serveur détecté - Configuration VipStats");
+        builder.Services.AddScoped<VipStatsRefreshService>();
+        builder.Services.AddHostedService<VipStatsBackgroundService>();
+    }
+
+    LogToFile("Construction de l'application...");
+    var app = builder.Build();
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    LogToFile("Configuration des fichiers statiques...");
+    var imageDir = AppData.ImageDir();
+    LogToFile($"Répertoire d'images: {imageDir}");
+
+    if (!Directory.Exists(imageDir))
+    {
+        LogToFile($"Création du répertoire d'images: {imageDir}");
+        Directory.CreateDirectory(imageDir);
+    }
+
+    app.UseStaticFiles(
+        new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(imageDir),
+            RequestPath = "/image",
+            ServeUnknownFileTypes = false,
+            OnPrepareResponse = ctx =>
+            {
+                ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=3600");
+                ctx.Context.Response.Headers.Append("Accept-Ranges", "bytes");
+            },
+        }
+    );
+
+    app.MapControllers();
+    app.UseRouting();
+    app.UseHttpsRedirection();
+
+    LogToFile("Application prête à démarrer");
+    Console.WriteLine("EvoConnect Server starting...");
+
+    app.Run();
+
+    LogToFile("Application arrêtée normalement");
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Failed to initialize KPI database: {ex.Message}");
-    var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex, "Failed to initialize KPI database");
+    LogToFile($"ERREUR FATALE: {ex}");
+    Console.WriteLine($"FATAL ERROR: {ex.Message}");
+    Console.WriteLine($"See log file: {logPath}");
+
+    // Attendre un peu pour que les logs soient écrits
+    Thread.Sleep(2000);
+
+    // Re-lancer l'exception pour que le service s'arrête proprement
     throw;
 }
-
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"];
-
-builder
-    .Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        };
-    });
-
-services.AddEndpointsApiExplorer();
-
-services.AddHttpContextAccessor();
-services.AddScoped<IAppointmentsDA, AppointmentsDA>();
-services.AddScoped<IFinancialDA, FinancialDA>();
-services.AddScoped<IImagesDA, ImagesDA>();
-services.AddScoped<IPartnerDA, PartnerDA>();
-services.AddScoped<IPatientsDA, PatientsDA>();
-services.AddScoped<IPaymentDA, PaymentDA>();
-services.AddScoped<IActesRepository, ActesRepository>();
-services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
-services.AddScoped<IAuthRepository, AuthRepository>();
-services.AddSingleton<IExecuterDA, ExecuterDA>();
-services.AddSingleton<Synchronise>();
-services.AddSingleton<CancelationConf>();
-services.AddScoped<IKpiConfigRepository, KpiConfigRepository>();
-
-services.AddHostedService<DataCollector>();
-services.AddHostedService<UdpServicePublisher>();
-
-if (AppData.IsServer())
-{
-    builder.Services.AddScoped<VipStatsRefreshService>();
-    builder.Services.AddHostedService<VipStatsBackgroundService>();
-}
-
-var app = builder.Build();
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.UseStaticFiles(
-    new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(AppData.ImageDir()),
-        RequestPath = "/image",
-        ServeUnknownFileTypes = false,
-        OnPrepareResponse = ctx =>
-        {
-            ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=3600");
-            ctx.Context.Response.Headers.Append("Accept-Ranges", "bytes");
-        },
-    }
-);
-app.MapControllers();
-app.UseRouting();
-
-app.UseHttpsRedirection();
-
-app.Run();
 
 // ============= Méthodes de gestion du service =============
 
@@ -245,7 +327,7 @@ static void InstallService()
         {
             FileName = "sc.exe",
             Arguments =
-                $"create \"{serviceName}\" binPath=\"{exePath}\" DisplayName=\"{displayName}\" start=auto",
+                $"create \"{serviceName}\" binPath=\"\\\"{exePath}\\\"\" DisplayName=\"{displayName}\" start=auto",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -257,10 +339,20 @@ static void InstallService()
             if (process != null)
             {
                 process.WaitForExit();
+                var output = process.StandardOutput.ReadToEnd();
+                var error = process.StandardError.ReadToEnd();
+
+                Console.WriteLine($"Output: {output}");
+                if (!string.IsNullOrEmpty(error))
+                {
+                    Console.WriteLine($"Error: {error}");
+                }
+
                 if (process.ExitCode != 0)
                 {
-                    var error = process.StandardError.ReadToEnd();
-                    throw new Exception($"Échec de la création du service: {error}");
+                    throw new Exception(
+                        $"Échec de la création du service (code: {process.ExitCode}): {error}"
+                    );
                 }
             }
         }
@@ -285,6 +377,11 @@ static void InstallService()
         Console.WriteLine(
             $"✓ Le service '{displayName}' démarrera automatiquement au démarrage du système."
         );
+        Console.WriteLine("\nPour vérifier les logs en cas d'erreur:");
+        Console.WriteLine(
+            $"  - Fichier: {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup.log")}"
+        );
+        Console.WriteLine("  - Event Viewer: Windows Logs → Application → Source: EvoConnect");
         Console.ResetColor();
 
         Console.WriteLine("\nVoulez-vous démarrer le service maintenant? (O/N)");
@@ -299,6 +396,7 @@ static void InstallService()
     {
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine($"\nERREUR lors de l'installation: {ex.Message}");
+        Console.WriteLine($"\nDétails: {ex}");
         Console.ResetColor();
     }
 
@@ -345,8 +443,15 @@ static void UninstallServiceInternal(string serviceName)
     if (service.Status != ServiceControllerStatus.Stopped)
     {
         Console.WriteLine("Arrêt du service...");
-        service.Stop();
-        service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+        try
+        {
+            service.Stop();
+            service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+        }
+        catch
+        {
+            Console.WriteLine("Le service ne répond pas. Forçage de l'arrêt...");
+        }
         Thread.Sleep(2000);
     }
 
@@ -389,6 +494,8 @@ static void StartServiceCommand()
         else
         {
             Console.WriteLine("Démarrage du service...");
+            Console.WriteLine("Vérifiez le fichier startup.log pour les détails du démarrage.");
+
             service.Start();
             service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
 
@@ -400,7 +507,12 @@ static void StartServiceCommand()
     catch (Exception ex)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"ERREUR: {ex.Message}");
+        Console.WriteLine($"ERREUR lors du démarrage: {ex.Message}");
+        Console.WriteLine("\nVérifiez les logs pour plus de détails:");
+        Console.WriteLine(
+            $"  - {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup.log")}"
+        );
+        Console.WriteLine("  - Event Viewer → Windows Logs → Application");
         Console.ResetColor();
     }
 
